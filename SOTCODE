@@ -1,0 +1,1761 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>U.S. Department of the Treasury — SCRP</title>
+<script>
+// Simple no-op stubs so onclick= attributes don't throw ReferenceError during page parse.
+// The ES module replaces each of these with real implementations on load.
+var _noop=function(){};
+['navigate','sotLogin','sotPanel','submitAccessRequest','processReq','reqTab',
+ 'toggleSuspend','toggleWatch','setBudget','penalizeBudget','grantBudget','resetBudget',
+ 'postAnnouncement','deleteAnn','toggleAnnPin','updateTicker','saveTaxRates',
+ 'addTaxRow','removeTax','savePrices','applyMult','toggleEmergency','liftMartialLaw',
+ 'confirmEmergency','issueSanction','removeSanction','renderAuditLog','clearAuditLog',
+ 'revokeUser','promoteUser','closeModal','selectDept','proceedToOrder','backToDept',
+ 'submitOrder','newOrder','addVehicleRow','checkVehFirst','addWeaponRow','checkFirstTimePurchase',
+ 'updateHeliDisplay','recalcAll','logout'
+].forEach(function(n){ window[n]=_noop; });
+</script>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400&family=IBM+Plex+Mono:wght@300;400;500&family=EB+Garamond:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+:root{
+  --navy:#0a1628;--navy-mid:#0f2040;--navy-light:#162c52;
+  --gold:#c9a84c;--gold-light:#e8c97a;--gold-dim:#7a6230;
+  --cream:#f5f0e8;--cream-dark:#e0d5bf;
+  --red:#b02020;--green:#1a6b3a;--text-dim:#8899aa;
+  --border:rgba(201,168,76,0.22);--sidebar-w:250px;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+body{font-family:'EB Garamond',serif;background:#f2ede3;color:#1a1a2e;min-height:100vh;overflow-x:hidden;}
+#app-shell{display:flex;min-height:100vh;}
+
+/* SYNC INDICATOR */
+#sync-indicator{
+  position:fixed;bottom:18px;right:18px;z-index:9999;
+  font-family:'IBM Plex Mono',monospace;font-size:0.6rem;
+  letter-spacing:0.15em;padding:6px 12px;border-radius:2px;
+  transition:all 0.4s;pointer-events:none;
+}
+#sync-indicator.synced{background:rgba(26,107,58,0.85);color:#88ffaa;border:1px solid rgba(26,107,58,0.5);}
+#sync-indicator.syncing{background:rgba(201,168,76,0.85);color:#1a1a2e;border:1px solid rgba(201,168,76,0.5);}
+#sync-indicator.error{background:rgba(176,32,32,0.85);color:#ffaaaa;border:1px solid rgba(176,32,32,0.5);}
+
+/* TICKER */
+#ticker{position:fixed;top:0;left:0;right:0;z-index:999;background:var(--navy);border-bottom:1px solid var(--border);height:28px;display:flex;align-items:center;overflow:hidden;}
+#ticker-inner{display:flex;gap:60px;white-space:nowrap;animation:tickerScroll 40s linear infinite;font-family:'IBM Plex Mono',monospace;font-size:0.6rem;letter-spacing:0.1em;color:var(--gold-dim);}
+#ticker-inner span{color:var(--gold);}
+@keyframes tickerScroll{0%{transform:translateX(0);}100%{transform:translateX(-50%);}}
+
+/* ALERT BANNER */
+#alert-banner{display:none;position:fixed;top:28px;left:0;right:0;z-index:998;background:var(--red);padding:10px 20px;text-align:center;font-family:'IBM Plex Mono',monospace;font-size:0.72rem;letter-spacing:0.15em;color:#fff;border-bottom:2px solid #ff4444;animation:pulse-bg 2s infinite;}
+@keyframes pulse-bg{0%,100%{background:var(--red);}50%{background:#8b1010;}}
+
+/* MARTIAL LAW OVERLAY */
+#martial-overlay{display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.92);justify-content:center;align-items:center;flex-direction:column;text-align:center;}
+#martial-overlay.active{display:flex;}
+.martial-inner{border:2px solid var(--red);padding:60px 80px;max-width:700px;background:rgba(10,22,40,0.95);}
+.martial-inner h1{font-family:'Playfair Display',serif;font-size:3rem;color:var(--red);margin-bottom:14px;letter-spacing:0.1em;animation:flicker 1.5s infinite;}
+@keyframes flicker{0%,100%{opacity:1;}45%{opacity:0.7;}50%{opacity:1;}95%{opacity:0.8;}}
+.martial-inner p{font-family:'IBM Plex Mono',monospace;font-size:0.8rem;color:#cc9999;line-height:2;letter-spacing:0.15em;}
+
+/* SIDEBAR */
+#sidebar{width:var(--sidebar-w);background:var(--navy);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;top:28px;left:0;bottom:0;z-index:200;transition:transform 0.3s ease;overflow-y:auto;}
+#sidebar-logo{padding:22px 20px 16px;border-bottom:1px solid var(--border);text-align:center;}
+#sidebar-logo .seal{font-size:34px;display:block;margin-bottom:8px;cursor:pointer;}
+#sidebar-logo h2{font-family:'Playfair Display',serif;font-size:0.76rem;color:var(--gold);letter-spacing:0.06em;line-height:1.4;}
+#sidebar-logo p{font-family:'IBM Plex Mono',monospace;font-size:0.52rem;color:var(--text-dim);letter-spacing:0.2em;text-transform:uppercase;margin-top:4px;}
+#classif-badge{display:none;background:var(--red);color:#fff;font-family:'IBM Plex Mono',monospace;font-size:0.55rem;letter-spacing:0.2em;text-transform:uppercase;padding:3px 10px;border-radius:2px;margin-top:8px;text-align:center;}
+nav{flex:1;padding:10px 0;}
+.nav-section-label{font-family:'IBM Plex Mono',monospace;font-size:0.52rem;letter-spacing:0.25em;text-transform:uppercase;color:var(--gold-dim);padding:12px 18px 5px;}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 18px;cursor:pointer;font-family:'IBM Plex Mono',monospace;font-size:0.7rem;color:#aabbcc;letter-spacing:0.04em;transition:all 0.15s;border-left:3px solid transparent;}
+.nav-item:hover{color:var(--cream);background:rgba(201,168,76,0.06);border-left-color:var(--gold-dim);}
+.nav-item.active{color:var(--gold);background:rgba(201,168,76,0.1);border-left-color:var(--gold);}
+.nav-item .icon{font-size:13px;width:16px;text-align:center;}
+.nav-item .badge-ct{margin-left:auto;background:var(--red);color:#fff;border-radius:10px;padding:1px 7px;font-size:0.55rem;}
+.nav-divider{height:1px;background:var(--border);margin:8px 18px;}
+#sidebar-footer{padding:14px 18px;border-top:1px solid var(--border);font-family:'IBM Plex Mono',monospace;font-size:0.58rem;color:var(--text-dim);text-align:center;line-height:1.6;}
+#sidebar-footer .classified-label{color:var(--red);font-size:0.6rem;display:none;}
+#clock{font-family:'IBM Plex Mono',monospace;font-size:0.68rem;color:var(--gold-dim);text-align:center;padding:6px 18px 0;}
+
+/* MAIN */
+#main-content{margin-left:var(--sidebar-w);flex:1;display:flex;flex-direction:column;min-height:100vh;padding-top:28px;}
+#topbar{background:var(--navy);border-bottom:1px solid var(--border);padding:13px 36px;display:flex;align-items:center;gap:14px;position:sticky;top:28px;z-index:100;}
+#topbar .topbar-title{font-family:'Playfair Display',serif;font-size:0.95rem;color:var(--gold);flex:1;}
+.topbar-badge{font-family:'IBM Plex Mono',monospace;font-size:0.6rem;letter-spacing:0.15em;text-transform:uppercase;background:rgba(201,168,76,0.1);border:1px solid var(--border);padding:4px 10px;border-radius:2px;color:var(--gold);}
+.topbar-badge.topsec{background:rgba(176,32,32,0.2);border-color:rgba(176,32,32,0.4);color:#ff9999;}
+.btn-small{background:none;border:1px solid var(--border);color:var(--text-dim);padding:5px 11px;border-radius:2px;font-family:'IBM Plex Mono',monospace;font-size:0.6rem;cursor:pointer;letter-spacing:0.1em;text-transform:uppercase;transition:all 0.2s;}
+.btn-small:hover{border-color:var(--gold-dim);color:var(--cream);}
+.btn-small.danger{border-color:rgba(176,32,32,0.4);color:#cc6666;}
+.btn-small.danger:hover{background:rgba(176,32,32,0.15);color:#ff9999;}
+
+/* PAGE VIEWS */
+.page-view{display:none;}
+.page-view.active{display:block;}
+
+/* ═══ PUBLIC HOME ═══ */
+#page-home{background:#f2ede3;}
+.hero-banner{background:var(--navy);color:var(--cream);padding:55px 55px 45px;position:relative;overflow:hidden;}
+.hero-banner::before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 60px,rgba(201,168,76,0.03) 60px,rgba(201,168,76,0.03) 61px),repeating-linear-gradient(90deg,transparent,transparent 60px,rgba(201,168,76,0.03) 60px,rgba(201,168,76,0.03) 61px);pointer-events:none;}
+.hero-inner{position:relative;z-index:1;max-width:860px;}
+.hero-eyebrow{font-family:'IBM Plex Mono',monospace;font-size:0.62rem;letter-spacing:0.3em;text-transform:uppercase;color:var(--gold-dim);margin-bottom:14px;}
+.hero-banner h1{font-family:'Playfair Display',serif;font-size:clamp(1.8rem,3.5vw,2.8rem);color:var(--gold);line-height:1.15;margin-bottom:12px;}
+.hero-banner p{font-size:1rem;color:#b8c8d8;line-height:1.75;max-width:660px;}
+.hero-divider{width:90px;height:2px;background:linear-gradient(90deg,var(--gold),transparent);margin:20px 0;}
+.home-grid{display:grid;grid-template-columns:1fr 330px;gap:36px;max-width:1400px;margin:0 auto;padding:36px 40px 60px;}
+.tax-bulletin{background:var(--navy);color:var(--cream);border-radius:4px;border:1px solid var(--border);overflow:hidden;margin-bottom:26px;}
+.tax-bulletin-header{background:rgba(201,168,76,0.1);border-bottom:1px solid var(--border);padding:14px 22px;display:flex;align-items:center;gap:12px;}
+.tax-bulletin-header h3{font-family:'Playfair Display',serif;font-size:1rem;color:var(--gold);}
+.tax-bulletin-header .eff{font-family:'IBM Plex Mono',monospace;font-size:0.6rem;color:var(--text-dim);margin-left:auto;letter-spacing:0.1em;}
+.tax-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));}
+.tax-cell{padding:16px 18px;border-right:1px solid var(--border);border-bottom:1px solid var(--border);}
+.tax-cell .tl{font-family:'IBM Plex Mono',monospace;font-size:0.56rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--text-dim);margin-bottom:5px;}
+.tax-cell .tr{font-family:'Playfair Display',serif;font-size:1.5rem;color:var(--gold);}
+.tax-cell .td{font-size:0.76rem;color:#8899aa;margin-top:2px;}
+.section-header{display:flex;align-items:center;gap:12px;margin-bottom:18px;}
+.section-header h2{font-family:'Playfair Display',serif;font-size:1.35rem;color:var(--navy);}
+.section-header .line{flex:1;height:1px;background:linear-gradient(90deg,rgba(10,22,40,0.2),transparent);}
+.ann-card{background:#fff;border:1px solid rgba(0,0,0,0.07);border-radius:3px;padding:18px 22px;margin-bottom:12px;border-left:4px solid var(--gold);box-shadow:0 2px 8px rgba(0,0,0,0.05);animation:fadeSlide 0.4s ease;}
+.ann-card.urgent{border-left-color:var(--red);}
+.ann-card.info{border-left-color:#2a6aad;}
+.ann-meta{font-family:'IBM Plex Mono',monospace;font-size:0.6rem;color:#999;margin-bottom:7px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.ann-tag{padding:2px 7px;border-radius:2px;font-size:0.56rem;letter-spacing:0.15em;text-transform:uppercase;font-weight:500;}
+.tag-official{background:#f0e8d0;color:#7a5c20;}
+.tag-urgent{background:#fde8e8;color:#a02020;}
+.tag-info{background:#e0eaf8;color:#1a4a8a;}
+.ann-title{font-family:'Playfair Display',serif;font-size:1rem;color:var(--navy);margin-bottom:5px;}
+.ann-body{font-size:0.88rem;color:#445;line-height:1.7;}
+@keyframes fadeSlide{from{opacity:0;transform:translateY(5px);}to{opacity:1;transform:translateY(0);}}
+.widget{background:#fff;border:1px solid rgba(0,0,0,0.07);border-radius:3px;margin-bottom:18px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.05);}
+.widget-header{background:var(--navy);padding:13px 16px;border-bottom:1px solid var(--border);}
+.widget-header h4{font-family:'Playfair Display',serif;font-size:0.9rem;color:var(--gold);}
+.widget-body{padding:14px 16px;}
+.br{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid rgba(0,0,0,0.05);font-size:0.83rem;}
+.br:last-child{border-bottom:none;}
+.br .brl{color:#445;}
+.br .brv{font-family:'IBM Plex Mono',monospace;font-size:0.76rem;color:var(--navy);font-weight:500;}
+.ni{padding:11px 0;border-bottom:1px solid rgba(0,0,0,0.05);}
+.ni:last-child{border-bottom:none;}
+.ni .nid{font-family:'IBM Plex Mono',monospace;font-size:0.58rem;color:#aaa;margin-bottom:3px;}
+.ni .nit{font-size:0.86rem;color:#1a1a2e;line-height:1.4;}
+.public-footer{background:var(--navy);color:#8899aa;padding:28px 40px;margin-top:50px;border-top:1px solid var(--border);text-align:center;font-family:'IBM Plex Mono',monospace;font-size:0.67rem;line-height:1.8;letter-spacing:0.08em;}
+.public-footer .endorsement{color:var(--gold);font-size:0.72rem;margin-bottom:7px;font-family:'Playfair Display',serif;font-style:italic;}
+
+/* ═══ INTERIOR PAGES ═══ */
+.page-hero{background:var(--navy);padding:38px 50px;border-bottom:1px solid var(--border);}
+.page-hero h1{font-family:'Playfair Display',serif;font-size:1.75rem;color:var(--gold);margin-bottom:5px;}
+.page-hero p{font-family:'IBM Plex Mono',monospace;font-size:0.67rem;color:var(--text-dim);letter-spacing:0.15em;text-transform:uppercase;}
+.interior-page{background:#f2ede3;padding:44px 50px 70px;}
+.content-card{background:#fff;border:1px solid rgba(0,0,0,0.07);border-radius:3px;padding:28px 34px;margin-bottom:22px;box-shadow:0 2px 8px rgba(0,0,0,0.05);}
+.content-card h3{font-family:'Playfair Display',serif;font-size:1.1rem;color:var(--navy);border-bottom:1px solid rgba(0,0,0,0.07);padding-bottom:11px;margin-bottom:16px;}
+.tbl{width:100%;border-collapse:collapse;font-size:0.88rem;}
+.tbl th{text-align:left;padding:9px 10px;font-family:'IBM Plex Mono',monospace;font-size:0.6rem;letter-spacing:0.15em;text-transform:uppercase;color:#667;border-bottom:2px solid rgba(0,0,0,0.08);}
+.tbl td{padding:11px 10px;border-bottom:1px solid rgba(0,0,0,0.05);color:#334;}
+.tbl tr:hover td{background:rgba(201,168,76,0.04);}
+
+/* ═══ DARK PAGES ═══ */
+#page-login,#page-pending,#page-sot-login,#page-sot-dashboard,#page-user-portal{background:var(--navy);}
+.dark-center{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:calc(100vh - 90px);padding:40px 20px;}
+.portal-header{text-align:center;margin-bottom:32px;}
+.portal-seal{width:70px;height:70px;border:3px solid var(--gold);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:28px;background:radial-gradient(circle,var(--navy-mid),var(--navy));box-shadow:0 0 24px rgba(201,168,76,0.3);margin:0 auto 16px;}
+.portal-header h1{font-family:'Playfair Display',serif;font-size:1.55rem;color:var(--gold);margin-bottom:5px;}
+.portal-header .sub{font-family:'IBM Plex Mono',monospace;font-size:0.63rem;color:var(--text-dim);letter-spacing:0.25em;text-transform:uppercase;}
+.hdivider{width:170px;height:1px;background:linear-gradient(90deg,transparent,var(--gold),transparent);margin:13px auto;}
+.dark-card{background:rgba(15,32,64,0.85);border:1px solid var(--border);border-radius:4px;padding:34px 38px;width:100%;max-width:500px;backdrop-filter:blur(10px);box-shadow:0 20px 60px rgba(0,0,0,0.5);}
+.dark-card h2{font-family:'Playfair Display',serif;font-size:1.15rem;color:var(--gold);margin-bottom:3px;}
+.dark-card .card-sub{font-family:'IBM Plex Mono',monospace;font-size:0.65rem;color:var(--text-dim);letter-spacing:0.1em;margin-bottom:24px;}
+label{display:block;font-family:'IBM Plex Mono',monospace;font-size:0.6rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--gold-dim);margin-bottom:6px;}
+input[type="text"],input[type="password"],input[type="number"],select,textarea{width:100%;background:rgba(10,22,40,0.8);border:1px solid var(--border);border-radius:2px;padding:10px 13px;color:var(--cream);font-family:'IBM Plex Mono',monospace;font-size:0.86rem;outline:none;transition:border-color 0.2s,box-shadow 0.2s;}
+input:focus,select:focus,textarea:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(201,168,76,0.1);}
+input::placeholder,textarea::placeholder{color:#445566;}
+select option{background:var(--navy-mid);}
+textarea{resize:vertical;min-height:80px;}
+.form-group{margin-bottom:17px;}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.btn{display:inline-block;width:100%;padding:12px;background:linear-gradient(135deg,var(--gold-dim),var(--gold));color:var(--navy);border:none;border-radius:2px;font-family:'IBM Plex Mono',monospace;font-size:0.72rem;letter-spacing:0.2em;text-transform:uppercase;cursor:pointer;font-weight:500;transition:all 0.2s;margin-top:5px;}
+.btn:hover{background:linear-gradient(135deg,var(--gold),var(--gold-light));box-shadow:0 4px 20px rgba(201,168,76,0.3);transform:translateY(-1px);}
+.btn:active{transform:translateY(0);}
+.btn:disabled{opacity:0.45;cursor:not-allowed;transform:none;}
+.btn-secondary{background:transparent;border:1px solid var(--border);color:var(--text-dim);margin-top:9px;}
+.btn-secondary:hover{background:rgba(201,168,76,0.05);border-color:var(--gold-dim);color:var(--cream);box-shadow:none;}
+.btn-red{background:linear-gradient(135deg,#7a1010,var(--red));color:#fff;}
+.btn-red:hover{background:linear-gradient(135deg,var(--red),#d04040);}
+.btn-green{background:linear-gradient(135deg,#0e4020,var(--green));color:#fff;}
+.btn-green:hover{background:linear-gradient(135deg,var(--green),#2a8a4a);}
+.error-msg{background:rgba(176,32,32,0.15);border:1px solid rgba(176,32,32,0.4);color:#ff8888;padding:10px 13px;border-radius:2px;font-size:0.72rem;font-family:'IBM Plex Mono',monospace;margin-top:11px;display:none;}
+.success-msg{background:rgba(26,107,58,0.15);border:1px solid rgba(26,107,58,0.4);color:#88cc99;padding:10px 13px;border-radius:2px;font-size:0.72rem;font-family:'IBM Plex Mono',monospace;margin-top:11px;display:none;}
+
+/* ═══ SOT DASHBOARD ═══ */
+#page-sot-dashboard{background:var(--navy);}
+.sot-layout{display:grid;grid-template-columns:210px 1fr;min-height:calc(100vh - 90px);}
+.sot-nav{background:rgba(10,22,40,0.5);border-right:1px solid var(--border);padding:16px 0;}
+.sot-nav-item{display:flex;align-items:center;gap:9px;padding:10px 18px;cursor:pointer;font-family:'IBM Plex Mono',monospace;font-size:0.68rem;color:#8899aa;letter-spacing:0.04em;transition:all 0.15s;border-left:3px solid transparent;}
+.sot-nav-item:hover{color:var(--cream);background:rgba(201,168,76,0.06);}
+.sot-nav-item.active{color:var(--gold);background:rgba(201,168,76,0.1);border-left-color:var(--gold);}
+.sot-nav-section{font-family:'IBM Plex Mono',monospace;font-size:0.5rem;letter-spacing:0.25em;text-transform:uppercase;color:var(--gold-dim);padding:14px 18px 4px;}
+.sot-nav-divider{height:1px;background:var(--border);margin:8px 18px;}
+.sot-panel{padding:32px 38px;overflow-y:auto;}
+.sot-panel-section{display:none;}
+.sot-panel-section.active{display:block;}
+.panel-title{font-family:'Playfair Display',serif;font-size:1.35rem;color:var(--gold);margin-bottom:3px;}
+.panel-sub{font-family:'IBM Plex Mono',monospace;font-size:0.62rem;color:var(--text-dim);letter-spacing:0.15em;text-transform:uppercase;margin-bottom:24px;}
+.stat-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:13px;margin-bottom:28px;}
+.sc{background:rgba(15,32,64,0.6);border:1px solid var(--border);border-radius:3px;padding:18px 16px;}
+.sc .scl{font-family:'IBM Plex Mono',monospace;font-size:0.55rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--text-dim);margin-bottom:7px;}
+.sc .scv{font-family:'Playfair Display',serif;font-size:1.45rem;color:var(--gold);}
+.sc .scs{font-size:0.75rem;color:#8899aa;margin-top:2px;}
+.data-table{width:100%;border-collapse:collapse;font-size:0.8rem;}
+.data-table th{font-family:'IBM Plex Mono',monospace;font-size:0.58rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--gold-dim);text-align:left;padding:9px 13px;border-bottom:1px solid var(--border);}
+.data-table td{padding:12px 13px;border-bottom:1px solid rgba(201,168,76,0.06);vertical-align:middle;color:var(--cream);}
+.data-table tr:hover td{background:rgba(201,168,76,0.03);}
+.mono{font-family:'IBM Plex Mono',monospace;}
+.status-badge{font-family:'IBM Plex Mono',monospace;font-size:0.58rem;padding:3px 8px;border-radius:2px;letter-spacing:0.1em;text-transform:uppercase;}
+.s-pending{background:rgba(201,168,76,0.15);color:var(--gold);border:1px solid rgba(201,168,76,0.3);}
+.s-approved{background:rgba(26,107,58,0.2);color:#66cc88;border:1px solid rgba(26,107,58,0.4);}
+.s-denied{background:rgba(176,32,32,0.15);color:#ff8888;border:1px solid rgba(176,32,32,0.3);}
+.s-suspended{background:rgba(176,32,32,0.2);color:#ffaaaa;border:1px solid rgba(176,32,32,0.4);}
+.s-frozen{background:rgba(0,100,180,0.2);color:#88aaff;border:1px solid rgba(0,100,180,0.4);}
+.s-watchlist{background:rgba(180,100,0,0.2);color:#ffaa66;border:1px solid rgba(180,100,0,0.4);}
+.action-btns{display:flex;gap:5px;flex-wrap:wrap;}
+.abtn{padding:4px 9px;border-radius:2px;font-family:'IBM Plex Mono',monospace;font-size:0.58rem;cursor:pointer;letter-spacing:0.08em;text-transform:uppercase;border:none;transition:all 0.2s;}
+.abtn-approve{background:rgba(26,107,58,0.25);color:#66cc88;border:1px solid rgba(26,107,58,0.4);}
+.abtn-approve:hover{background:rgba(26,107,58,0.45);}
+.abtn-deny{background:rgba(176,32,32,0.15);color:#ff8888;border:1px solid rgba(176,32,32,0.3);}
+.abtn-deny:hover{background:rgba(176,32,32,0.35);}
+.abtn-suspend{background:rgba(180,80,0,0.2);color:#ffaa66;border:1px solid rgba(180,80,0,0.4);}
+.abtn-suspend:hover{background:rgba(180,80,0,0.4);}
+.abtn-reinstate{background:rgba(26,107,58,0.15);color:#88dd99;border:1px solid rgba(26,107,58,0.3);}
+.abtn-reinstate:hover{background:rgba(26,107,58,0.3);}
+.abtn-freeze{background:rgba(0,100,180,0.15);color:#88aaff;border:1px solid rgba(0,100,180,0.3);}
+.abtn-freeze:hover{background:rgba(0,100,180,0.3);}
+.abtn-watch{background:rgba(180,140,0,0.15);color:#ddcc66;border:1px solid rgba(180,140,0,0.3);}
+.abtn-neutral{background:rgba(100,100,100,0.2);color:#aaa;border:1px solid rgba(100,100,100,0.3);}
+.price-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;margin-bottom:22px;}
+.price-box{background:rgba(15,32,64,0.6);border:1px solid var(--border);border-radius:3px;padding:18px;}
+.price-box h4{font-family:'IBM Plex Mono',monospace;font-size:0.62rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--gold-dim);margin-bottom:13px;}
+.price-row{display:flex;align-items:center;gap:8px;margin-bottom:9px;}
+.price-row label{margin:0;white-space:nowrap;flex:0 0 120px;font-size:0.56rem;}
+.price-row input{flex:1;}
+.ann-form{background:rgba(15,32,64,0.6);border:1px solid var(--border);border-radius:3px;padding:22px;margin-bottom:22px;}
+.info-note{background:rgba(201,168,76,0.07);border-left:3px solid var(--gold-dim);padding:10px 13px;font-size:0.76rem;color:#aabbcc;margin-bottom:14px;font-family:'IBM Plex Mono',monospace;line-height:1.6;}
+.danger-zone{background:rgba(176,32,32,0.1);border:1px solid rgba(176,32,32,0.3);border-radius:3px;padding:22px;margin-bottom:18px;}
+.danger-zone h4{font-family:'IBM Plex Mono',monospace;font-size:0.62rem;letter-spacing:0.2em;text-transform:uppercase;color:#ff8888;margin-bottom:14px;}
+.audit-entry{padding:11px 0;border-bottom:1px solid rgba(201,168,76,0.07);font-family:'IBM Plex Mono',monospace;font-size:0.68rem;display:grid;grid-template-columns:130px 80px 1fr;gap:12px;}
+.audit-entry .at{color:var(--text-dim);}
+.audit-entry .av{color:var(--gold);}
+.audit-entry .am{color:var(--cream);}
+.audit-entry.log-warn .am{color:#ffaa66;}
+.audit-entry.log-danger .am{color:#ff8888;}
+.audit-entry.log-good .am{color:#66cc99;}
+.emergency-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px;}
+.emerg-card{background:rgba(15,32,64,0.7);border:1px solid var(--border);border-radius:3px;padding:20px;}
+.emerg-card.active-emerg{border-color:rgba(176,32,32,0.5);background:rgba(176,32,32,0.08);}
+.emerg-card h4{font-family:'Playfair Display',serif;font-size:1rem;color:var(--gold);margin-bottom:8px;}
+.emerg-card p{font-size:0.8rem;color:var(--text-dim);line-height:1.6;margin-bottom:14px;}
+.emerg-status{font-family:'IBM Plex Mono',monospace;font-size:0.65rem;letter-spacing:0.15em;text-transform:uppercase;margin-bottom:12px;padding:6px 10px;border-radius:2px;text-align:center;}
+.emerg-status.off{background:rgba(100,100,100,0.2);color:#888;}
+.emerg-status.on{background:rgba(176,32,32,0.2);color:#ff8888;animation:pulse-text 1.5s infinite;}
+@keyframes pulse-text{0%,100%{opacity:1;}50%{opacity:0.5;};}
+
+/* USER PORTAL */
+#page-user-portal{background:var(--navy);}
+.portal-wrap{padding:38px;max-width:960px;margin:0 auto;}
+.step-bar{display:flex;align-items:center;margin-bottom:32px;}
+.step-dot{display:flex;align-items:center;gap:8px;font-family:'IBM Plex Mono',monospace;font-size:0.63rem;color:var(--text-dim);letter-spacing:0.1em;text-transform:uppercase;}
+.step-dot.active{color:var(--gold);}
+.step-dot.done{color:#66cc88;}
+.step-num{width:25px;height:25px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.68rem;border:1px solid currentColor;flex-shrink:0;}
+.step-line{flex:1;height:1px;background:var(--border);margin:0 10px;}
+.dept-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(182px,1fr));gap:13px;margin-bottom:26px;}
+.dept-card{border:1px solid var(--border);border-radius:3px;padding:17px;cursor:pointer;transition:all 0.2s;background:rgba(15,32,64,0.4);}
+.dept-card:hover{border-color:var(--gold);background:rgba(201,168,76,0.06);}
+.dept-card.selected{border-color:var(--gold);background:rgba(201,168,76,0.1);}
+.dept-card.suspended-dept{opacity:0.35;cursor:not-allowed;pointer-events:none;border-color:rgba(176,32,32,0.4);}
+.dept-card.frozen-dept{opacity:0.4;cursor:not-allowed;pointer-events:none;border-color:rgba(0,100,180,0.5);}
+.dept-card .dct{font-family:'IBM Plex Mono',monospace;font-size:0.56rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--text-dim);margin-bottom:4px;}
+.dept-card .dcn{font-family:'Playfair Display',serif;font-size:0.93rem;color:var(--cream);margin-bottom:5px;}
+.dept-card .dcb{font-family:'IBM Plex Mono',monospace;font-size:0.65rem;color:var(--gold-dim);}
+.psection{background:rgba(15,32,64,0.5);border:1px solid var(--border);border-radius:4px;padding:24px;margin-bottom:18px;}
+.psection h3{font-family:'Playfair Display',serif;font-size:1rem;color:var(--gold);margin-bottom:14px;}
+.prow{display:grid;grid-template-columns:1fr 1fr;gap:13px;align-items:end;margin-bottom:11px;}
+.prow .form-group{margin-bottom:0;}
+.prow-3{grid-template-columns:1fr 1fr 1fr;}
+.prow-4{grid-template-columns:1fr 1fr 1fr auto;}
+.livery-note{background:rgba(26,107,58,0.1);border:1px solid rgba(26,107,58,0.25);border-radius:2px;padding:10px 13px;font-family:'IBM Plex Mono',monospace;font-size:0.7rem;color:#99ddaa;margin-top:9px;display:none;}
+.remove-btn{background:none;border:none;color:#cc4444;cursor:pointer;font-size:1.1rem;padding:0 5px;transition:color 0.2s;align-self:flex-end;padding-bottom:10px;}
+.remove-btn:hover{color:#ff6666;}
+.add-row-btn{background:rgba(201,168,76,0.08);border:1px dashed var(--gold-dim);color:var(--gold-dim);padding:7px 16px;border-radius:2px;font-family:'IBM Plex Mono',monospace;font-size:0.66rem;cursor:pointer;transition:all 0.2s;letter-spacing:0.1em;margin-top:5px;}
+.add-row-btn:hover{border-color:var(--gold);color:var(--gold);background:rgba(201,168,76,0.14);}
+.cost-summary{background:rgba(10,22,40,0.85);border:1px solid var(--border);border-radius:4px;padding:26px;margin-top:22px;}
+.cost-summary h3{font-family:'IBM Plex Mono',monospace;font-size:0.62rem;letter-spacing:0.25em;text-transform:uppercase;color:var(--gold-dim);margin-bottom:16px;}
+.cost-line{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid rgba(201,168,76,0.07);font-size:0.8rem;}
+.cost-line .cll{color:var(--text-dim);font-family:'IBM Plex Mono',monospace;font-size:0.74rem;}
+.cost-line .cla{font-family:'IBM Plex Mono',monospace;color:var(--cream);}
+.cost-total{display:flex;justify-content:space-between;align-items:center;padding:13px 0 0;margin-top:5px;border-top:2px solid var(--border);}
+.cost-total .ctl{font-family:'Playfair Display',serif;font-size:0.98rem;color:var(--gold);}
+.cost-total .cta{font-family:'IBM Plex Mono',monospace;font-size:1.15rem;color:var(--gold);font-weight:500;}
+.balance-row{display:grid;grid-template-columns:1fr 1fr;gap:13px;margin-top:16px;}
+.bal-box{border-radius:3px;padding:15px;text-align:center;}
+.bal-box.before{border:1px solid rgba(201,168,76,0.3);background:rgba(201,168,76,0.05);}
+.bal-box.after-ok{border:1px solid rgba(26,107,58,0.4);background:rgba(26,107,58,0.08);}
+.bal-box.after-bad{border:1px solid rgba(176,32,32,0.4);background:rgba(176,32,32,0.08);}
+.bal-box .bl{font-family:'IBM Plex Mono',monospace;font-size:0.56rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--text-dim);margin-bottom:5px;}
+.bal-box .bv{font-family:'IBM Plex Mono',monospace;font-size:1.03rem;font-weight:500;}
+.before .bv{color:var(--gold);}
+.after-ok .bv{color:#66cc88;}
+.after-bad .bv{color:#ff8888;}
+.insuf{background:rgba(176,32,32,0.15);border:1px solid rgba(176,32,32,0.3);border-radius:2px;padding:10px 13px;font-family:'IBM Plex Mono',monospace;font-size:0.7rem;color:#ff8888;margin-top:11px;display:none;}
+.nav-btns{display:flex;gap:11px;margin-top:20px;}
+.nav-btns .btn{width:auto;flex:1;}
+.tab-btns{display:flex;border-bottom:1px solid var(--border);margin-bottom:22px;}
+.tab-btn{background:none;border:none;border-bottom:2px solid transparent;padding:9px 18px;color:var(--text-dim);font-family:'IBM Plex Mono',monospace;font-size:0.65rem;letter-spacing:0.15em;text-transform:uppercase;cursor:pointer;transition:all 0.2s;margin-bottom:-1px;}
+.tab-btn.active{color:var(--gold);border-bottom-color:var(--gold);}
+.tab-content{display:none;}
+.tab-content.active{display:block;}
+.empty-state{text-align:center;padding:45px;color:var(--text-dim);font-family:'IBM Plex Mono',monospace;font-size:0.78rem;}
+
+/* MODAL */
+#modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:5000;justify-content:center;align-items:center;}
+#modal-overlay.open{display:flex;}
+#modal-box{background:var(--navy-mid);border:1px solid var(--border);border-radius:4px;padding:36px;max-width:500px;width:90%;box-shadow:0 30px 80px rgba(0,0,0,0.6);}
+#modal-box h3{font-family:'Playfair Display',serif;font-size:1.2rem;color:var(--gold);margin-bottom:8px;}
+#modal-box p{font-family:'IBM Plex Mono',monospace;font-size:0.76rem;color:#aabbcc;line-height:1.7;margin-bottom:20px;}
+#modal-input{margin-bottom:16px;}
+#modal-btns{display:flex;gap:10px;}
+#modal-btns button{flex:1;}
+
+/* EASTER EGG */
+#egg-flash{display:none;position:fixed;inset:0;z-index:99999;background:var(--gold);opacity:0;pointer-events:none;transition:opacity 0.3s;}
+#classified-modal{display:none;position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,0.95);justify-content:center;align-items:center;}
+#classified-modal.open{display:flex;}
+.classified-inner{border:3px double var(--red);padding:50px 60px;max-width:680px;text-align:center;background:rgba(10,22,40,0.98);}
+.classified-inner h2{font-family:'Playfair Display',serif;font-size:2rem;color:var(--red);margin-bottom:16px;letter-spacing:0.2em;text-transform:uppercase;}
+.classified-inner .file-content{font-family:'IBM Plex Mono',monospace;font-size:0.72rem;color:#99aabb;line-height:2;text-align:left;margin:20px 0;padding:16px;background:rgba(0,0,0,0.4);border:1px solid rgba(255,0,0,0.2);}
+.classified-inner .file-content .redacted{background:#333;color:#333;border-radius:2px;}
+
+@media(max-width:860px){.home-grid{grid-template-columns:1fr;}.emergency-grid{grid-template-columns:1fr;}.form-row{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+
+<div id="sync-indicator" class="synced">● LIVE</div>
+
+<div id="ticker">
+  <div id="ticker-inner">
+    <span>SCRP TREASURY PORTAL</span> · FY-2025 BUDGET ACTIVE · ALL DEPARTMENTS OPERATIONAL · PAYROLL DUE END OF FISCAL WEEK ·
+    <span>SCRP TREASURY PORTAL</span> · FY-2025 BUDGET ACTIVE · ALL DEPARTMENTS OPERATIONAL · PAYROLL DUE END OF FISCAL WEEK ·
+  </div>
+</div>
+
+<div id="alert-banner">⚠ NOTICE: Emergency declaration is active — All departments report to command immediately ⚠</div>
+
+<div id="martial-overlay">
+  <div class="martial-inner">
+    <h1>⚠ MARTIAL LAW ⚠</h1>
+    <p>BY ORDER OF THE SECRETARY OF THE TREASURY<br>ALL CIVILIAN OPERATIONS ARE SUSPENDED<br>ALL DEPARTMENTS REPORT TO EMERGENCY COMMAND<br><br>SCRP DIVISION — EXECUTIVE ORDER IN EFFECT<br>CIVIL LIBERTIES TEMPORARILY SUSPENDED<br>ALL FINANCIAL TRANSACTIONS REQUIRE SOT APPROVAL</p>
+    <button class="btn btn-red" style="max-width:260px;margin:24px auto 0;display:block;" onclick="liftMartialLaw()">LIFT MARTIAL LAW (SOT Only)</button>
+  </div>
+</div>
+
+<div id="modal-overlay">
+  <div id="modal-box">
+    <h3 id="modal-title">Confirm Action</h3>
+    <p id="modal-msg"></p>
+    <div id="modal-input" style="display:none;"><label>Reason</label><textarea id="modal-reason" placeholder="Enter reason..."></textarea></div>
+    <div id="modal-btns">
+      <button class="btn btn-red" id="modal-confirm">Confirm</button>
+      <button class="btn btn-secondary" onclick="closeModal()" style="margin-top:0;">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div id="classified-modal">
+  <div class="classified-inner">
+    <h2>🔴 CLASSIFIED 🔴</h2>
+    <div style="font-family:'IBM Plex Mono',monospace;font-size:0.6rem;color:var(--red);letter-spacing:0.3em;margin-bottom:10px;">TOP SECRET // SCRP // EYES ONLY</div>
+    <div class="file-content">
+      FILE: OPERATION <span class="redacted">REDACTED REDACTED</span><br>
+      DATE: <span class="redacted">REDACTED</span> — STILL ACTIVE<br>
+      CLEARANCE: LEVEL 5 — SECRETARY ONLY<br><br>
+      AGENT POTATO_2305 — CONFIRMED REAL<br>
+      ELLA8ELLA PROTOCOL: <span class="redacted">CLASSIFIED CLASSIFIED</span><br>
+      OBJECTIVE: <span class="redacted">MAINTAIN FISCAL DOMINANCE</span><br><br>
+      NOTE: This portal contains 3 easter eggs.<br>
+      You found one. Good work, agent.<br>
+      The seal knows the others.
+    </div>
+    <div style="font-family:'IBM Plex Mono',monospace;font-size:0.58rem;color:#556;margin-top:10px;">Unauthorized access is a federal offense — 18 U.S.C. § 1030</div>
+    <button class="btn" style="max-width:200px;margin:16px auto 0;display:block;" onclick="document.getElementById('classified-modal').classList.remove('open')">Close File</button>
+  </div>
+</div>
+
+<div id="egg-flash"></div>
+
+<div id="app-shell">
+<div id="sidebar">
+  <div id="sidebar-logo">
+    <span class="seal" id="seal-btn">⚖️</span>
+    <h2>U.S. Department<br>of the Treasury</h2>
+    <p>SCRP Division</p>
+    <div id="classif-badge">TOP SECRET</div>
+  </div>
+  <div id="clock"></div>
+  <nav>
+    <div class="nav-section-label">Public Information</div>
+    <div class="nav-item active" onclick="navigate('home')"><span class="icon">🏛️</span> Home</div>
+    <div class="nav-item" onclick="navigate('taxes')"><span class="icon">📊</span> Tax Information</div>
+    <div class="nav-item" onclick="navigate('budget')"><span class="icon">💰</span> Budget Overview</div>
+    <div class="nav-item" onclick="navigate('news')"><span class="icon">📰</span> News &amp; Notices</div>
+    <div class="nav-item" onclick="navigate('about')"><span class="icon">ℹ️</span> About</div>
+    <div class="nav-item" onclick="navigate('faq')"><span class="icon">❓</span> FAQ</div>
+    <div class="nav-divider"></div>
+    <div class="nav-section-label">Department Access</div>
+    <div class="nav-item" onclick="navigate('login')"><span class="icon">🔐</span> Department Login</div>
+    <div class="nav-divider"></div>
+    <div class="nav-section-label">Administration</div>
+    <div class="nav-item" onclick="navigate('sot-login')"><span class="icon">👑</span> Secretary Login</div>
+  </nav>
+  <div id="sidebar-footer">
+    <div class="classified-label" id="classif-label">// CLASSIFIED ACCESS //</div>
+    All endorsed by the<br>US Secretary of Treasury<br>— SCRP —
+  </div>
+</div>
+
+<div id="main-content">
+  <div id="topbar">
+    <div class="topbar-title" id="topbar-title">Home — Department of the Treasury</div>
+    <span class="topbar-badge" id="topbar-badge" style="display:none"></span>
+    <button class="btn-small danger" id="topbar-logout" style="display:none" onclick="logout()">Logout</button>
+  </div>
+
+  <!-- HOME -->
+  <div id="page-home" class="page-view active">
+    <div class="hero-banner">
+      <div class="hero-inner">
+        <div class="hero-eyebrow">Official Government Portal · Fiscal Year 2025</div>
+        <h1>U.S. Department of the Treasury</h1>
+        <div class="hero-divider"></div>
+        <p>The Department of the Treasury manages federal finances, enforces fiscal policy, and oversees all departmental budgets within the SCRP jurisdiction.</p>
+      </div>
+    </div>
+    <div class="home-grid">
+      <div>
+        <div class="section-header"><h2>Active Tax Schedule</h2><div class="line"></div></div>
+        <div class="tax-bulletin">
+          <div class="tax-bulletin-header"><h3>📋 Current Tax Rates</h3><span class="eff" id="tax-eff-date"></span></div>
+          <div class="tax-grid" id="tax-display-grid"></div>
+        </div>
+        <div class="section-header" style="margin-top:32px;"><h2>Official Announcements</h2><div class="line"></div></div>
+        <div id="announcements-public"></div>
+      </div>
+      <div>
+        <div class="widget">
+          <div class="widget-header"><h4>📊 Monthly Budget Summary</h4></div>
+          <div class="widget-body">
+            <div class="br"><span class="brl">Federal Allocation</span><span class="brv">$7.7B</span></div>
+            <div class="br"><span class="brl">State Allocation</span><span class="brv">$3.5B</span></div>
+            <div class="br"><span class="brl">Local Allocation</span><span class="brv">$2.8B</span></div>
+            <div class="br"><span class="brl">Emergency / Excess</span><span class="brv">$1.4B</span></div>
+            <div class="br"><span class="brl">Events Fund</span><span class="brv">$200M</span></div>
+            <div class="br"><span class="brl">National Reserves</span><span class="brv">$400M</span></div>
+          </div>
+        </div>
+        <div class="widget"><div class="widget-header"><h4>📰 Latest Notices</h4></div><div class="widget-body" id="news-widget"></div></div>
+        <div class="widget">
+          <div class="widget-header"><h4>⚡ Quick Access</h4></div>
+          <div class="widget-body">
+            <div class="br" style="cursor:pointer;" onclick="navigate('login')"><span class="brl">Department Portal Login</span><span>→</span></div>
+            <div class="br" style="cursor:pointer;" onclick="navigate('taxes')"><span class="brl">Full Tax Schedule</span><span>→</span></div>
+            <div class="br" style="cursor:pointer;" onclick="navigate('budget')"><span class="brl">Budget Breakdown</span><span>→</span></div>
+            <div class="br" style="cursor:pointer;" onclick="navigate('news')"><span class="brl">Press Releases</span><span>→</span></div>
+            <div class="br" style="cursor:pointer;" onclick="navigate('faq')"><span class="brl">FAQ &amp; Policy Guide</span><span>→</span></div>
+          </div>
+        </div>
+        <div class="widget">
+          <div class="widget-header"><h4>🚨 Emergency Status</h4></div>
+          <div class="widget-body">
+            <div id="public-emergency-status" style="font-family:'IBM Plex Mono',monospace;font-size:0.75rem;color:#66cc88;">● All Systems Normal</div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:0.62rem;color:var(--text-dim);margin-top:6px;">Last updated: <span id="emerg-last-update">—</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="public-footer">
+      <div class="endorsement">All endorsed by the US Secretary of Treasury — SCRP</div>
+      <div>U.S. Department of the Treasury · SCRP Division · Official Government Financial Portal</div>
+    </div>
+  </div>
+
+  <!-- TAXES -->
+  <div id="page-taxes" class="page-view">
+    <div class="page-hero"><h1>Tax Information</h1><p>Current rates · Effective immediately</p></div>
+    <div class="interior-page">
+      <div class="content-card"><h3>📋 Current Tax Schedule</h3><div id="full-tax-table"></div></div>
+      <div class="content-card"><h3>📘 Tax Policy Overview</h3><p style="line-height:1.8;color:#334;font-size:0.93rem;">All tax rates are established and reviewed monthly by the Secretary of the Treasury. Departments are subject to operational taxes applied to all procurement activities. Emergency levies may be imposed during periods of fiscal distress.</p></div>
+      <div class="content-card"><h3>⚠️ Penalties for Non-Compliance</h3><p style="line-height:1.8;color:#334;font-size:0.93rem;">Failure to comply with tax obligations results in automatic budget reductions of up to 25% per violation. Repeated non-compliance may result in full departmental suspension pending audit.</p></div>
+    </div>
+    <div class="public-footer"><div class="endorsement">All endorsed by the US Secretary of Treasury — SCRP</div></div>
+  </div>
+
+  <!-- BUDGET -->
+  <div id="page-budget" class="page-view">
+    <div class="page-hero"><h1>Budget Overview</h1><p>Monthly departmental allocations · Current fiscal period</p></div>
+    <div class="interior-page">
+      <div class="content-card"><h3>🏛️ Federal Departments</h3><div id="budget-federal"></div></div>
+      <div class="content-card"><h3>🗺️ State Departments</h3><div id="budget-state"></div></div>
+      <div class="content-card"><h3>🏙️ Local Departments</h3><div id="budget-local"></div></div>
+      <div class="content-card"><h3>🏦 Reserve &amp; Emergency Funds</h3>
+        <table class="tbl"><thead><tr><th>Fund</th><th>Amount</th><th>Usage</th></tr></thead><tbody>
+          <tr><td>Emergency / Excess</td><td style="font-family:'IBM Plex Mono',monospace;">$1.4B</td><td>Manhunts · Disasters · Martial Law</td></tr>
+          <tr><td>Events Fund</td><td style="font-family:'IBM Plex Mono',monospace;">$200M</td><td>Official government events</td></tr>
+          <tr><td>National Reserves</td><td style="font-family:'IBM Plex Mono',monospace;">$400M</td><td>Strategic reserve</td></tr>
+        </tbody></table>
+      </div>
+    </div>
+    <div class="public-footer"><div class="endorsement">All endorsed by the US Secretary of Treasury — SCRP</div></div>
+  </div>
+
+  <!-- NEWS -->
+  <div id="page-news" class="page-view">
+    <div class="page-hero"><h1>News &amp; Official Notices</h1><p>Press releases · Policy updates · Public advisories</p></div>
+    <div class="interior-page" style="max-width:860px;"><div id="news-full-list"></div></div>
+    <div class="public-footer"><div class="endorsement">All endorsed by the US Secretary of Treasury — SCRP</div></div>
+  </div>
+
+  <!-- ABOUT -->
+  <div id="page-about" class="page-view">
+    <div class="page-hero"><h1>About the Department</h1><p>Office of the Secretary of the Treasury · SCRP Division</p></div>
+    <div class="interior-page">
+      <div class="content-card"><h3>🏛️ Our Mission</h3><p style="line-height:1.8;color:#334;font-size:0.93rem;">The U.S. Department of the Treasury (SCRP Division) is responsible for managing all government fiscal operations, overseeing departmental budgets, enforcing financial policy, and ensuring the integrity of public funds.</p></div>
+      <div class="content-card"><h3>📋 Payroll Policy</h3><p style="line-height:1.8;color:#334;font-size:0.93rem;">All departments must submit a payroll schedule for every role and subdivision, per person. Failure to submit results in a mandatory 50% asset reduction. Submit via ticket in SCRP Government Comms, then ping the Secretary of Treasury.</p></div>
+      <div class="content-card"><h3>🚨 Emergency Fund Policy</h3><p style="line-height:1.8;color:#334;font-size:0.93rem;">Emergency excess funds may only be accessed via formal application to the Secretary of the Treasury. Approved uses include manhunts, natural disasters, martial law, and declared states of emergency.</p></div>
+    </div>
+    <div class="public-footer"><div class="endorsement">All endorsed by the US Secretary of Treasury — SCRP</div></div>
+  </div>
+
+  <!-- FAQ -->
+  <div id="page-faq" class="page-view">
+    <div class="page-hero"><h1>Frequently Asked Questions</h1><p>Policy guidance · Procurement help</p></div>
+    <div class="interior-page" style="max-width:820px;"><div class="content-card"><h3>❓ Common Questions</h3><div id="faq-list"></div></div></div>
+    <div class="public-footer"><div class="endorsement">All endorsed by the US Secretary of Treasury — SCRP</div></div>
+  </div>
+
+  <!-- LOGIN -->
+  <div id="page-login" class="page-view">
+    <div class="dark-center">
+      <div class="portal-header"><div class="portal-seal">🔐</div><h1>Department Access Portal</h1><div class="hdivider"></div><div class="sub">Submit access request · Pending Secretary approval</div></div>
+      <div class="dark-card">
+        <h2>Access Request</h2>
+        <div class="card-sub">All fields required — your request will be reviewed</div>
+        <div class="form-group"><label>Roblox Username</label><input type="text" id="entry-roblox" placeholder="YourRobloxUsername" /></div>
+        <div class="form-group"><label>Discord Username</label><input type="text" id="entry-discord" placeholder="username#0000" /></div>
+        <div class="form-group"><label>Department (Optional)</label>
+          <select id="entry-dept">
+            <option value="">— Select if known —</option>
+            <option>USSS</option><option>DHS</option><option>FBI</option><option>DOJ</option><option>USMS</option>
+            <option>White House / Cabinet</option><option>Federal Reserve</option>
+            <option>WSP</option><option>DOT</option><option>State Emergency Mgmt</option><option>State DOJ / Courts</option>
+            <option>SPD</option><option>KCSO</option><option>Fire Department</option><option>City Services / Reserves</option>
+          </select>
+        </div>
+        <button class="btn" onclick="submitAccessRequest()">Submit Access Request</button>
+        <div class="error-msg" id="entry-error"></div>
+        <div class="success-msg" id="entry-success"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PENDING -->
+  <div id="page-pending" class="page-view">
+    <div class="dark-center">
+      <div class="portal-header"><div class="portal-seal">⏳</div><h1>Pending Approval</h1><div class="hdivider"></div><div class="sub">Awaiting review by the Secretary of the Treasury</div></div>
+      <div class="dark-card" style="text-align:center;">
+        <div style="font-size:48px;margin-bottom:14px;">📋</div>
+        <h2 style="margin-bottom:10px;">Request Submitted</h2>
+        <p style="color:var(--text-dim);font-size:0.85rem;line-height:1.7;margin-bottom:16px;">Your request has been forwarded to the <span style="color:var(--gold)">Secretary of the Treasury</span>. Once approved you will have full access to the department procurement portal.</p>
+        <div id="pending-info" style="font-family:'IBM Plex Mono',monospace;font-size:0.7rem;color:#8899aa;background:rgba(0,0,0,0.2);padding:13px;border-radius:2px;margin-bottom:16px;text-align:left;line-height:1.8;"></div>
+        <button class="btn btn-secondary" onclick="navigate('login')" style="width:100%;margin-top:0;">← Back</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SOT LOGIN -->
+  <div id="page-sot-login" class="page-view">
+    <div class="dark-center">
+      <div class="portal-header"><div class="portal-seal">👑</div><h1>Secretary of the Treasury</h1><div class="hdivider"></div><div class="sub">Secure administrative access · All access logged</div></div>
+      <div class="dark-card">
+        <h2>Secure Authentication</h2>
+        <div class="card-sub">Credentials required · Session is monitored</div>
+        <div class="form-group"><label>Roblox Username</label><input type="text" id="sot-user" placeholder="Roblox Username" /></div>
+        <div class="form-group"><label>Password</label><input type="password" id="sot-pass" placeholder="••••••••••" /></div>
+        <button class="btn" onclick="sotLogin()">Authenticate</button>
+        <div class="error-msg" id="sot-error">Invalid credentials. Access denied.</div>
+        <div id="lockout-msg" style="display:none;font-family:'IBM Plex Mono',monospace;font-size:0.72rem;color:#ff6666;margin-top:10px;padding:10px;border:1px solid rgba(176,32,32,0.4);border-radius:2px;">🔒 Account temporarily locked. Please wait.</div>
+        <button class="btn btn-secondary" onclick="navigate('home')">← Return to Home</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SOT DASHBOARD -->
+  <div id="page-sot-dashboard" class="page-view">
+    <div class="sot-layout">
+      <div class="sot-nav">
+        <div class="sot-nav-section">Overview</div>
+        <div class="sot-nav-item active" onclick="sotPanel('overview')">📊 Dashboard</div>
+        <div class="sot-nav-item" onclick="sotPanel('audit')">📜 Audit Log</div>
+        <div class="sot-nav-divider"></div>
+        <div class="sot-nav-section">Personnel</div>
+        <div class="sot-nav-item" onclick="sotPanel('requests')">📋 Access Requests <span class="badge-ct" id="req-badge-ct" style="display:none"></span></div>
+        <div class="sot-nav-item" onclick="sotPanel('users')">👥 User Management</div>
+        <div class="sot-nav-divider"></div>
+        <div class="sot-nav-section">Departments</div>
+        <div class="sot-nav-item" onclick="sotPanel('departments')">🏛️ Departments</div>
+        <div class="sot-nav-item" onclick="sotPanel('budgets')">💰 Budget Control</div>
+        <div class="sot-nav-divider"></div>
+        <div class="sot-nav-section">Communications</div>
+        <div class="sot-nav-item" onclick="sotPanel('announcements')">📢 Announcements</div>
+        <div class="sot-nav-item" onclick="sotPanel('ticker-edit')">📡 Ticker Feed</div>
+        <div class="sot-nav-divider"></div>
+        <div class="sot-nav-section">Finance</div>
+        <div class="sot-nav-item" onclick="sotPanel('taxes')">💸 Tax Rates</div>
+        <div class="sot-nav-item" onclick="sotPanel('prices')">🏷️ Price Controls</div>
+        <div class="sot-nav-item" onclick="sotPanel('multipliers')">✖️ Multipliers</div>
+        <div class="sot-nav-divider"></div>
+        <div class="sot-nav-section">Emergency Powers</div>
+        <div class="sot-nav-item" onclick="sotPanel('emergency')">🚨 Emergency Controls</div>
+        <div class="sot-nav-item" onclick="sotPanel('sanctions')">⛔ Sanctions &amp; Flags</div>
+      </div>
+      <div class="sot-panel">
+        <div class="sot-panel-section active" id="sp-overview">
+          <div class="panel-title">Command Dashboard</div>
+          <div class="panel-sub">Secretary of the Treasury · Live Data</div>
+          <div class="stat-cards" id="stat-cards"></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+            <div><div class="panel-title" style="font-size:1rem;margin-bottom:10px;">Recent Requests</div><div id="overview-requests"></div></div>
+            <div><div class="panel-title" style="font-size:1rem;margin-bottom:10px;">Recent Audit Events</div><div id="overview-audit"></div></div>
+          </div>
+        </div>
+        <div class="sot-panel-section" id="sp-audit">
+          <div class="panel-title">Audit Log</div>
+          <div class="panel-sub">Full chronological record</div>
+          <div style="display:flex;gap:10px;margin-bottom:16px;">
+            <select id="audit-filter" onchange="renderAuditLog()" style="width:200px;"><option value="all">All Events</option><option value="log-good">Approvals</option><option value="log-danger">Denials / Suspensions</option><option value="log-warn">Warnings</option></select>
+            <button class="abtn abtn-neutral" onclick="clearAuditLog()">Clear Log</button>
+          </div>
+          <div id="audit-log-list"></div>
+        </div>
+        <div class="sot-panel-section" id="sp-requests">
+          <div class="panel-title">Access Request Management</div>
+          <div class="panel-sub">Review · Approve · Deny</div>
+          <div class="tab-btns">
+            <button class="tab-btn active" onclick="reqTab('pending')">Pending <span id="req-pending-ct"></span></button>
+            <button class="tab-btn" onclick="reqTab('approved')">Approved</button>
+            <button class="tab-btn" onclick="reqTab('denied')">Denied</button>
+          </div>
+          <div id="req-tab-pending" class="tab-content active"><div id="req-list-pending"></div></div>
+          <div id="req-tab-approved" class="tab-content"><div id="req-list-approved"></div></div>
+          <div id="req-tab-denied" class="tab-content"><div id="req-list-denied"></div></div>
+        </div>
+        <div class="sot-panel-section" id="sp-users">
+          <div class="panel-title">User Management</div>
+          <div class="panel-sub">Manage approved users · Revoke · Promote</div>
+          <div class="info-note">Approved users can access the department procurement portal.</div>
+          <div id="user-management-list"></div>
+        </div>
+        <div class="sot-panel-section" id="sp-departments">
+          <div class="panel-title">Department Management</div>
+          <div class="panel-sub">Suspend · Freeze · Reinstate · Monitor</div>
+          <div class="info-note">Suspended departments cannot submit orders. Frozen departments have all financial activity halted.</div>
+          <div id="dept-management-table"></div>
+        </div>
+        <div class="sot-panel-section" id="sp-budgets">
+          <div class="panel-title">Budget Control</div>
+          <div class="panel-sub">Adjust budgets · Apply penalties · Issue grants</div>
+          <div id="budget-control-table"></div>
+        </div>
+        <div class="sot-panel-section" id="sp-announcements">
+          <div class="panel-title">Announcements</div>
+          <div class="panel-sub">Post official public notices</div>
+          <div class="ann-form">
+            <div class="form-row">
+              <div class="form-group"><label>Title</label><input type="text" id="ann-title" placeholder="Announcement title..." /></div>
+              <div class="form-group"><label>Category</label><select id="ann-cat"><option value="official">Official Notice</option><option value="urgent">Urgent / Alert</option><option value="info">Informational</option></select></div>
+            </div>
+            <div class="form-group"><label>Body</label><textarea id="ann-body" placeholder="Enter announcement content..."></textarea></div>
+            <div class="form-group"><label>Pin Status</label><select id="ann-pin"><option value="standard">Standard (no pin)</option><option value="pinned">Pinned (top of list)</option><option value="classified">Classified (hidden from public)</option></select></div>
+            <button class="btn" style="max-width:200px;" onclick="postAnnouncement()">📢 Post Announcement</button>
+            <div class="success-msg" id="ann-success" style="max-width:280px;">Announcement posted.</div>
+          </div>
+          <div class="panel-title" style="font-size:1rem;margin-bottom:10px;">All Announcements</div>
+          <div id="ann-list-sot"></div>
+        </div>
+        <div class="sot-panel-section" id="sp-ticker-edit">
+          <div class="panel-title">Ticker Feed Control</div>
+          <div class="panel-sub">Edit the scrolling public ticker</div>
+          <div class="ann-form">
+            <div class="form-group"><label>Ticker Message</label><textarea id="ticker-input" placeholder="Enter ticker message..." style="min-height:60px;"></textarea></div>
+            <button class="btn" style="max-width:200px;" onclick="updateTicker()">📡 Update Ticker</button>
+            <div class="success-msg" id="ticker-saved" style="max-width:240px;">Ticker updated.</div>
+          </div>
+          <div class="info-note">Separate items with " · " for proper formatting.</div>
+        </div>
+        <div class="sot-panel-section" id="sp-taxes">
+          <div class="panel-title">Tax Rate Management</div>
+          <div class="panel-sub">Edit rates — changes reflect immediately on public portal</div>
+          <div class="price-grid" id="tax-editor"></div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;">
+            <button class="btn" style="max-width:200px;" onclick="saveTaxRates()">💾 Save Tax Rates</button>
+            <button class="btn btn-red" style="max-width:220px;" onclick="addTaxRow()">+ Add Tax Category</button>
+          </div>
+          <div class="success-msg" id="tax-saved" style="max-width:220px;">Tax rates updated.</div>
+        </div>
+        <div class="sot-panel-section" id="sp-prices">
+          <div class="panel-title">Price Controls</div>
+          <div class="panel-sub">Edit all procurement prices</div>
+          <div id="price-editor"></div>
+          <button class="btn" style="max-width:200px;" onclick="savePrices()">💾 Save Prices</button>
+          <div class="success-msg" id="prices-saved" style="max-width:220px;">Prices saved.</div>
+        </div>
+        <div class="sot-panel-section" id="sp-multipliers">
+          <div class="panel-title">Price Multipliers</div>
+          <div class="panel-sub">Apply a global multiplier to price categories</div>
+          <div class="info-note">⚠️ Multipliers permanently modify base prices. 1.0 = no change.</div>
+          <div id="multiplier-editor"></div>
+          <div class="success-msg" id="mult-saved" style="max-width:260px;">Multipliers applied.</div>
+        </div>
+        <div class="sot-panel-section" id="sp-emergency">
+          <div class="panel-title">Emergency Powers</div>
+          <div class="panel-sub">Executive emergency controls — use with extreme caution</div>
+          <div class="emergency-grid" id="emergency-grid"></div>
+          <div class="danger-zone">
+            <h4>⚠️ DANGER ZONE — IRREVERSIBLE ACTIONS</h4>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+              <button class="btn btn-red" onclick="confirmEmergency('budget-freeze','Freeze ALL Department Budgets','This will freeze all financial transactions across all departments.')">🧊 Freeze All Budgets</button>
+              <button class="btn btn-red" onclick="confirmEmergency('mass-suspend','Suspend ALL Departments','All departments will be suspended immediately.')">⛔ Mass Suspend All</button>
+              <button class="btn btn-green" onclick="confirmEmergency('mass-reinstate','Reinstate ALL Departments','All suspended/frozen departments will be reinstated.')">✅ Mass Reinstate All</button>
+              <button class="btn" onclick="confirmEmergency('budget-reset','Reset All Budgets to Default','This will reset all department budgets to default values.')">🔄 Reset All Budgets</button>
+            </div>
+          </div>
+        </div>
+        <div class="sot-panel-section" id="sp-sanctions">
+          <div class="panel-title">Sanctions &amp; Flags</div>
+          <div class="panel-sub">Issue formal sanctions · Watchlist flags · Financial penalties</div>
+          <div class="ann-form">
+            <h4 style="font-family:'IBM Plex Mono',monospace;font-size:0.65rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--gold-dim);margin-bottom:14px;">Issue Sanction / Flag</h4>
+            <div class="form-row">
+              <div class="form-group"><label>Target (Roblox Username or Department)</label><input type="text" id="sanction-target" placeholder="Target name..." /></div>
+              <div class="form-group"><label>Sanction Type</label><select id="sanction-type"><option value="watchlist">Watchlist Flag</option><option value="formal-warning">Formal Warning</option><option value="financial-penalty">Financial Penalty (5%)</option><option value="financial-penalty-lg">Financial Penalty (25%)</option><option value="blacklist">Blacklist</option></select></div>
+            </div>
+            <div class="form-group"><label>Reason / Notes</label><textarea id="sanction-reason" placeholder="Document the reason..."></textarea></div>
+            <button class="btn btn-red" style="max-width:200px;" onclick="issueSanction()">⛔ Issue Sanction</button>
+            <div class="success-msg" id="sanction-success" style="max-width:280px;">Sanction issued and logged.</div>
+          </div>
+          <div class="panel-title" style="font-size:1rem;margin-bottom:10px;">Active Sanctions</div>
+          <div id="sanctions-list"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- USER PORTAL -->
+  <div id="page-user-portal" class="page-view">
+    <div class="portal-wrap">
+      <div id="suspended-banner" style="display:none;background:rgba(176,32,32,0.15);border:1px solid rgba(176,32,32,0.35);border-radius:3px;padding:14px 18px;margin-bottom:22px;font-family:'IBM Plex Mono',monospace;font-size:0.76rem;color:#ffaaaa;">⚠️ Your department is currently <strong>suspended</strong>. Procurement is disabled.</div>
+      <div id="frozen-banner" style="display:none;background:rgba(0,80,160,0.15);border:1px solid rgba(0,80,160,0.35);border-radius:3px;padding:14px 18px;margin-bottom:22px;font-family:'IBM Plex Mono',monospace;font-size:0.76rem;color:#88aaff;">🧊 Your department's budget is currently <strong>frozen</strong>. No transactions permitted.</div>
+      <div id="portal-step-dept">
+        <div class="step-bar">
+          <div class="step-dot active"><div class="step-num">1</div>&nbsp;Department</div>
+          <div class="step-line"></div>
+          <div class="step-dot"><div class="step-num">2</div>&nbsp;Order</div>
+          <div class="step-line"></div>
+          <div class="step-dot"><div class="step-num">3</div>&nbsp;Review</div>
+        </div>
+        <div class="panel-title">Select Your Department</div>
+        <div class="panel-sub" style="margin-bottom:18px;">Choose your department to view your monthly budget and submit a procurement order</div>
+        <div class="dept-grid" id="dept-grid"></div>
+        <button class="btn" style="max-width:250px;" onclick="proceedToOrder()">Continue →</button>
+      </div>
+      <div id="portal-step-order" style="display:none;">
+        <div class="step-bar">
+          <div class="step-dot done"><div class="step-num">✓</div>&nbsp;Department</div>
+          <div class="step-line"></div>
+          <div class="step-dot active"><div class="step-num">2</div>&nbsp;Build Order</div>
+          <div class="step-line"></div>
+          <div class="step-dot"><div class="step-num">3</div>&nbsp;Review</div>
+        </div>
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:0.68rem;letter-spacing:0.1em;color:var(--gold);background:rgba(201,168,76,0.1);border:1px solid var(--border);padding:7px 13px;border-radius:2px;display:inline-block;margin-bottom:13px;" id="sel-dept-badge"></div>
+        <div class="info-note" id="dept-budget-note"></div>
+        <div class="psection"><h3>👔 Uniforms &amp; Outfits</h3>
+          <div class="prow prow-3">
+            <div class="form-group"><label>Uniform Type</label><select id="uni-type" onchange="recalcAll();checkFirstTimePurchase()"><option value="">— Select —</option><option value="initial">Initial Uniform (one-time)</option><option value="monthly">Monthly Maintenance</option></select></div>
+            <div class="form-group"><label>Number of Personnel</label><input type="number" id="uni-qty" min="0" placeholder="0" oninput="recalcAll()" /></div>
+            <div class="form-group"><label>Estimated Cost</label><input type="text" id="uni-cost-show" readonly style="background:rgba(0,0,0,0.3);cursor:default;" /></div>
+          </div>
+          <div class="livery-note" id="uniform-livery-note">📋 <strong>First-Time Purchase:</strong> Please send the Secretary of Treasury your <strong>Uniform / Outfit codes</strong>.</div>
+          <div id="uniform-code-input" style="display:none;margin-top:12px;"><div class="form-group"><label>Outfit / Uniform Code(s)</label><input type="text" id="uniform-codes" placeholder="e.g. UNI-FBI-001" /></div></div>
+        </div>
+        <div class="psection"><h3>🚔 Vehicles</h3>
+          <div class="info-note">Minimum 10 · Maximum 1,000 units per order. Prices per 10 vehicles. Up to 2 livery codes per vehicle type.</div>
+          <div id="vehicle-rows"></div>
+          <button class="add-row-btn" onclick="addVehicleRow()">+ Add Vehicle Type</button>
+        </div>
+        <div class="psection"><h3>🔫 Weapons (Bulk — per 100 units)</h3>
+          <div id="weapon-rows"></div>
+          <button class="add-row-btn" onclick="addWeaponRow()">+ Add Weapon Type</button>
+        </div>
+        <div class="psection"><h3>🚁 Helicopter Usage</h3>
+          <div class="prow">
+            <div class="form-group"><label>Minutes of Usage</label><input type="number" id="heli-mins" min="0" placeholder="0" oninput="recalcAll()" /></div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:0.7rem;color:var(--text-dim);padding-bottom:11px;align-self:flex-end;">@ <span id="heli-rate-display">$50,000</span> / minute</div>
+          </div>
+        </div>
+        <div class="psection"><h3>🏛️ Subdivisions</h3>
+          <div class="prow">
+            <div class="form-group"><label>Number of Active Subdivisions</label><input type="number" id="subdiv-qty" min="0" placeholder="0" oninput="recalcAll()" /></div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:0.7rem;color:var(--text-dim);padding-bottom:11px;align-self:flex-end;">@ $75,000,000 / month each</div>
+          </div>
+        </div>
+        <div class="psection"><h3>📝 Order Notes</h3><div class="form-group" style="margin:0;"><textarea id="order-notes" placeholder="Additional context, livery codes, special requests..."></textarea></div></div>
+        <div class="cost-summary">
+          <h3>📊 ORDER SUMMARY</h3>
+          <div id="cost-lines-el"></div>
+          <div class="cost-total"><span class="ctl">Total Cost</span><span class="cta" id="total-cost-el">$0</span></div>
+          <div class="balance-row">
+            <div class="bal-box before"><div class="bl">Budget Before</div><div class="bv" id="bal-before-el">$0</div></div>
+            <div class="bal-box after-ok" id="bal-after-box"><div class="bl">Budget After</div><div class="bv" id="bal-after-el">$0</div></div>
+          </div>
+          <div class="insuf" id="insuf-msg">⚠️ Insufficient funds — order total exceeds available budget.</div>
+        </div>
+        <div class="nav-btns">
+          <button class="btn btn-secondary" onclick="backToDept()">← Change Dept</button>
+          <button class="btn" id="submit-order-btn" onclick="submitOrder()">Submit Order for Approval →</button>
+        </div>
+      </div>
+      <div id="portal-step-confirm" style="display:none;text-align:center;padding:65px 0;">
+        <div style="font-size:56px;margin-bottom:18px;">✅</div>
+        <div class="panel-title" style="text-align:center;">Order Submitted</div>
+        <p style="color:var(--text-dim);font-size:0.84rem;margin:14px auto 26px;line-height:1.7;max-width:480px;">Your procurement order has been submitted to the <span style="color:var(--gold)">Secretary of the Treasury</span> for approval. Reference: <span class="mono" id="order-ref-num" style="color:var(--gold)">—</span></p>
+        <button class="btn" style="max-width:250px;margin:0 auto;" onclick="newOrder()">Submit Another Order</button>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- FIREBASE SDK via CDN (non-module, global access) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script>
+// ─── FIREBASE CONFIG ───────────────────────────────────────
+const firebaseConfig = {
+  apiKey: "AIzaSyAF6I70pCy7FTOTZf0YNlja6UmyhQohy04",
+  authDomain: "seattle-sot.firebaseapp.com",
+  projectId: "seattle-sot",
+  storageBucket: "seattle-sot.firebasestorage.app",
+  messagingSenderId: "291331319639",
+  appId: "1:291331319639:web:00a7b78a2bf93e3df64012"
+};
+
+// Init Firebase with fallback if offline
+let db;
+try {
+  firebase.initializeApp(firebaseConfig);
+  db = firebase.firestore();
+} catch(e) { console.warn('Firebase init failed, running offline:', e); }
+
+// Compat shims so the rest of the code works unchanged
+function initializeApp(c){ return firebase.app(); }
+function getFirestore(){ return db; }
+function doc(db,...args){ return db.doc(args.join('/')); }
+function collection(db,col){ return db.collection(col); }
+function serverTimestamp(){ 
+  try { return firebase.firestore.FieldValue.serverTimestamp(); } 
+  catch(e) { return new Date().toISOString(); }
+}
+function onSnapshot(ref, cb, ecb){ 
+  try{ return ref.onSnapshot(cb, ecb||console.error); }
+  catch(e){ console.error('onSnapshot failed:', e); if(ecb)ecb(e); }
+}
+function setDoc(ref, data){ return ref.set(data); }
+function addDoc(ref, data){ return ref.add(data); }
+function updateDoc(ref, data){ return ref.update(data); }
+function deleteDoc(ref){ return ref.delete(); }
+function getDocs(ref){ return ref.get(); }
+function query(ref, ...constraints){ 
+  let q = ref;
+  constraints.forEach(c => { if(typeof c === 'function') q = c(q); });
+  return q;
+}
+function orderBy(field, dir){ return (ref) => ref.orderBy(field, dir||'asc'); }
+function limit(n){ return (ref) => ref.limit(n); }
+
+
+
+// ─── SYNC INDICATOR ────────────────────────────────────────
+function setSyncing(){ const el=document.getElementById('sync-indicator'); el.className='syncing'; el.textContent='↑ SYNCING'; }
+function setSynced(){  const el=document.getElementById('sync-indicator'); el.className='synced';  el.textContent='● LIVE'; }
+function setSyncErr(){ const el=document.getElementById('sync-indicator'); el.className='error';   el.textContent='✕ OFFLINE'; }
+
+// ─── LOCAL STATE ───────────────────────────────────────────
+const DEFAULT_DEPTS = [
+  {id:'USSS',name:'USSS',type:'Federal',budget:1200000000,tier:'federal'},
+  {id:'DHS',name:'DHS',type:'Federal',budget:1600000000,tier:'federal'},
+  {id:'FBI',name:'FBI',type:'Federal',budget:1400000000,tier:'federal'},
+  {id:'DOJ',name:'DOJ',type:'Federal',budget:1100000000,tier:'federal'},
+  {id:'USMS',name:'USMS',type:'Federal',budget:700000000,tier:'federal'},
+  {id:'WhiteHouse',name:'White House / Cabinet',type:'Federal',budget:1000000000,tier:'federal'},
+  {id:'FedReserve',name:'Federal Reserve',type:'Federal',budget:700000000,tier:'federal'},
+  {id:'WSP',name:'WSP',type:'State',budget:1300000000,tier:'state'},
+  {id:'DOT',name:'DOT',type:'State',budget:1100000000,tier:'dot'},
+  {id:'StateEM',name:'State Emergency Mgmt',type:'State',budget:600000000,tier:'state'},
+  {id:'StateDOJ',name:'State DOJ / Courts',type:'State',budget:500000000,tier:'state'},
+  {id:'SPD',name:'SPD',type:'Local',budget:1200000000,tier:'local'},
+  {id:'KCSO',name:'KCSO',type:'Local',budget:800000000,tier:'local'},
+  {id:'Fire',name:'Fire Department',type:'Local',budget:600000000,tier:'fire'},
+  {id:'CityServices',name:'City Services / Reserves',type:'Local',budget:200000000,tier:'local'},
+];
+
+let DEPTS = JSON.parse(JSON.stringify(DEFAULT_DEPTS));
+let DEPT_STATUS = {}; DEPTS.forEach(d=>{DEPT_STATUS[d.id]='active';});
+let DEPT_WATCHLIST = {}; DEPTS.forEach(d=>{DEPT_WATCHLIST[d.id]=false;});
+let PRICES = {
+  uniform_initial:{local:35000,state:45000,federal:70000,fire:40000,dot:28000},
+  uniform_monthly:{local:8750,state:11250,federal:17500,fire:10000,dot:7000},
+  vehicle_new:{Sedan:2500000,SUV:3200000,Van:3750000,Truck:3500000,'Armored Truck':12000000},
+  vehicle_monthly:{Sedan:850000,SUV:1100000,Van:1350000,Truck:1250000,'Armored Truck':3200000},
+  weapon:{Pistol:{local:4800000,state:6200000,federal:9500000},Shotgun:{local:7800000,state:9500000,federal:14000000},Rifle:{local:16000000,state:20000000,federal:28000000},Sniper:{local:null,state:38000000,federal:65000000}},
+  heli_per_min:50000,subdiv_monthly:75000000,
+};
+let TAXES = [
+  {label:'Income Tax',rate:'18%',desc:'Individual & corporate earnings'},
+  {label:'Operational',rate:'12%',desc:'All department operations'},
+  {label:'Equipment Levy',rate:'8%',desc:'All procurement orders'},
+  {label:'Emergency Fund',rate:'3%',desc:'Monthly reserve contribution'},
+  {label:'Vehicle Tax',rate:'5%',desc:'Fleet operations & registration'},
+  {label:'Payroll Tax',rate:'10%',desc:'Per employee, per department'},
+];
+let ANNOUNCEMENTS = [];
+let REQUESTS = [];
+let SANCTIONS = [];
+let AUDIT_LOG = [];
+let EMERGENCY_STATE = {alert:false,martial:false,budgetFreeze:false,lockdown:false};
+let TICKER_MSG = '';
+
+let sotLoggedIn = false;
+let sotLoginAttempts = 0;
+let sotLocked = false;
+let currentUser = null;
+let selectedDeptId = null;
+const SOT_CREDS = {user:'Potato_2305',pass:'Ella8ella'};
+let sealClickCount = 0;
+let konamiSeq = [];
+const KONAMI = [38,38,40,40,37,39,37,39,66,65];
+let secretCode = '';
+let _clearSeq = '';
+
+const FAQS = [
+  {q:'How do I submit a payroll?',a:'Submit via a ticket in the SCRP Government Communications server and ping the Secretary of Treasury. Include all roles, subdivisions, and per-person pay. Deadline is end of fiscal week.'},
+  {q:'What happens if I miss the payroll deadline?',a:"Failure to submit a payroll will result in automatic removal of 50% of your department's total assets. No exceptions without prior SOT approval."},
+  {q:'How do I request emergency funds?',a:'Submit a formal application to the Secretary of Treasury including an incident report, projected costs, and justification. Emergency funds cover manhunts, natural disasters, and martial law scenarios only.'},
+  {q:'What is the minimum vehicle order?',a:'The minimum vehicle order is 10 units per vehicle type. The maximum per order is 1,000 units. Prices are calculated per 10 vehicles.'},
+  {q:'Do I need to submit livery codes with my vehicle order?',a:'Yes. For all new vehicle purchases, you must provide your Livery Code(s) — up to 2 liveries per vehicle type — to the Secretary of Treasury.'},
+  {q:'What is a subdivision and how is it funded?',a:'Subdivisions are specialized units within a department, funded at $75,000,000 per month each.'},
+  {q:'Can departments apply for a budget increase?',a:'Yes. Budget increase requests must be formally submitted to the Secretary of Treasury with documented justification.'},
+  {q:'What weapons can local departments order?',a:'Local LE (SPD, KCSO) can order Pistols, Shotguns, and Rifles. Sniper rifles are only available to State and Federal departments.'},
+];
+
+// ─── FIREBASE HELPERS ──────────────────────────────────────
+async function fbSet(path, data){ 
+  setSyncing(); 
+  try{ await setDoc(doc(db,...path.split('/')),{...data,_ts:serverTimestamp()}); setSynced(); }
+  catch(e){ setSyncErr(); console.error('fbSet failed:',path,e); alert('Firebase error (fbSet): '+e.message); } 
+}
+async function fbAdd(col, data){ 
+  setSyncing(); 
+  try{ const r=await addDoc(collection(db,col),{...data,_ts:serverTimestamp()}); setSynced(); return r.id; }
+  catch(e){ setSyncErr(); console.error('fbAdd failed:',col,e); alert('Firebase error (fbAdd): '+e.message); } 
+}
+async function fbUpdate(path, data){ 
+  setSyncing(); 
+  try{ await updateDoc(doc(db,...path.split('/')),{...data,_ts:serverTimestamp()}); setSynced(); }
+  catch(e){ setSyncErr(); console.error('fbUpdate failed:',path,e); alert('Firebase error (fbUpdate): '+e.message); } 
+}
+async function fbDelete(path){ 
+  setSyncing(); 
+  try{ await deleteDoc(doc(db,...path.split('/'))); setSynced(); }
+  catch(e){ setSyncErr(); console.error('fbDelete failed:',path,e); alert('Firebase error (fbDelete): '+e.message); } 
+}
+
+async function savePortalState(){
+  await fbSet('portal/state',{TAXES,PRICES,EMERGENCY_STATE,TICKER_MSG,DEPTS,DEPT_STATUS,DEPT_WATCHLIST});
+}
+
+// ─── REAL-TIME LISTENERS ───────────────────────────────────
+function initListeners(){
+  onSnapshot(doc(db,'portal','state'), snap => {
+    if(!snap.exists) return;
+    const d = snap.data();
+    if(d.TAXES)           TAXES           = d.TAXES;
+    if(d.PRICES)          PRICES          = d.PRICES;
+    if(d.EMERGENCY_STATE) EMERGENCY_STATE = d.EMERGENCY_STATE;
+    if(d.TICKER_MSG != null) TICKER_MSG   = d.TICKER_MSG;
+    if(d.DEPTS)           DEPTS           = d.DEPTS;
+    if(d.DEPT_STATUS)     DEPT_STATUS     = d.DEPT_STATUS;
+    if(d.DEPT_WATCHLIST)  DEPT_WATCHLIST  = d.DEPT_WATCHLIST;
+    applyEmergencyUI();
+    if(TICKER_MSG) applyTickerMsg(TICKER_MSG);
+    renderPublicHome();
+    renderFullTaxTable();
+    renderBudgetPage();
+    renderNewsPage();
+    if(sotLoggedIn) renderSOTDash();
+    else if(document.getElementById('page-user-portal').classList.contains('active')) renderUserPortal();
+  }, setSyncErr);
+
+  onSnapshot(collection(db,'announcements'), snap => {
+    ANNOUNCEMENTS = snap.docs.map(d=>({id:d.id,...d.data()}));
+    ANNOUNCEMENTS.sort((a,b)=>(b._ts?.seconds||0)-(a._ts?.seconds||0));
+    renderPublicHome();
+    renderNewsPage();
+    if(sotLoggedIn) renderAnnSOT();
+  }, setSyncErr);
+
+  onSnapshot(collection(db,'requests'), snap => {
+    REQUESTS = snap.docs.map(d=>({id:d.id,...d.data()}));
+    REQUESTS.sort((a,b)=>(b._ts?.seconds||0)-(a._ts?.seconds||0));
+    updateRequestBadge();
+    if(sotLoggedIn){ renderReqLists(); renderStatCards(); renderUserManagement(); }
+  }, setSyncErr);
+
+  onSnapshot(collection(db,'sanctions'), snap => {
+    SANCTIONS = snap.docs.map(d=>({id:d.id,...d.data()}));
+    if(sotLoggedIn){ renderSanctionsList(); renderStatCards(); }
+  }, setSyncErr);
+
+  onSnapshot(query(collection(db,'audit'), orderBy('_ts','desc'), limit(200)), snap => {
+    AUDIT_LOG = snap.docs.map(d=>({id:d.id,...d.data()}));
+    if(sotLoggedIn){ renderAuditLog(); renderStatCards(); }
+  }, setSyncErr);
+}
+
+function updateRequestBadge(){
+  const pending = REQUESTS.filter(r=>r.status==='pending').length;
+  const b = document.getElementById('req-badge-ct');
+  if(b){ b.textContent=pending; b.style.display=pending>0?'':'none'; }
+}
+
+// ─── UTILITIES ─────────────────────────────────────────────
+function fmt(n){
+  if(n===null||n===undefined) return '—';
+  const neg=n<0; n=Math.abs(n);
+  let s;
+  if(n>=1e9) s='$'+(n/1e9).toFixed(2).replace(/\.?0+$/,'')+'B';
+  else if(n>=1e6) s='$'+(n/1e6).toFixed(3).replace(/\.?0+$/,'')+'M';
+  else if(n>=1e3) s='$'+(n/1e3).toFixed(0)+'K';
+  else s='$'+n.toLocaleString();
+  return neg?'-'+s:s;
+}
+function ts(){ return new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',second:'2-digit'}); }
+function tsDate(){ return new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); }
+function showSuccess(id,msg,dur=3000){ const el=document.getElementById(id); if(!el)return; el.textContent=msg||el.textContent; el.style.display='block'; setTimeout(()=>el.style.display='none',dur); }
+function showErr(id,msg){ const el=document.getElementById(id); if(!el)return; el.textContent=msg; el.style.display='block'; }
+function hideEl(id){ const el=document.getElementById(id); if(el)el.style.display='none'; }
+
+async function audit(action, cls=''){
+  await fbAdd('audit',{ts:ts(),type:'SOT',action,cls});
+}
+
+// ─── CLOCK ─────────────────────────────────────────────────
+setInterval(()=>{ const el=document.getElementById('clock'); if(el) el.textContent=new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false})+' EST'; },1000);
+
+// ─── NAVIGATION ────────────────────────────────────────────
+function navigate(page){
+  document.querySelectorAll('.page-view').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('page-'+page)?.classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n=>{ if(n.getAttribute('onclick')?.includes("'"+page+"'")) n.classList.add('active'); });
+  const titles={home:'Home — Department of the Treasury',taxes:'Tax Information',budget:'Budget Overview',news:'News & Official Notices',about:'About the Department',faq:'FAQ & Policy Guide',login:'Department Access Portal',pending:'Access Request — Pending Approval','sot-login':'Secretary of the Treasury — Secure Login','sot-dashboard':'Treasury Command Center','user-portal':'Department Procurement Portal'};
+  document.getElementById('topbar-title').textContent = titles[page]||page;
+  if(page==='home') renderPublicHome();
+  if(page==='taxes') renderFullTaxTable();
+  if(page==='budget') renderBudgetPage();
+  if(page==='news') renderNewsPage();
+  if(page==='faq') renderFAQ();
+  if(page==='sot-dashboard') renderSOTDash();
+  if(page==='user-portal') renderUserPortal();
+};
+window.navigate = navigate;
+
+// ─── PUBLIC HOME ───────────────────────────────────────────
+function renderPublicHome(){
+  const tg=document.getElementById('tax-display-grid');
+  if(tg) tg.innerHTML=TAXES.map(t=>`<div class="tax-cell"><div class="tl">${t.label}</div><div class="tr">${t.rate}</div><div class="td">${t.desc}</div></div>`).join('');
+  const eff=document.getElementById('tax-eff-date');
+  if(eff) eff.textContent='Effective: '+new Date().toLocaleDateString('en-US',{month:'long',year:'numeric'});
+  const ac=document.getElementById('announcements-public');
+  if(ac){
+    const visible=ANNOUNCEMENTS.filter(a=>a.pin!=='classified');
+    const sorted=[...visible.filter(a=>a.pin==='pinned'),...visible.filter(a=>a.pin!=='pinned')].slice(0,6);
+    if(!sorted.length) ac.innerHTML='<p style="color:#888;font-family:\'IBM Plex Mono\',monospace;">No public announcements at this time.</p>';
+    else ac.innerHTML=sorted.map(a=>{
+      const cls=a.cat==='urgent'?'urgent':a.cat==='info'?'info':'';
+      const tag=a.cat==='urgent'?'tag-urgent':a.cat==='info'?'tag-info':'tag-official';
+      const tagLabel=a.cat==='urgent'?'Urgent':a.cat==='info'?'Info':'Official';
+      const pinBadge=a.pin==='pinned'?'<span class="ann-tag" style="background:rgba(201,168,76,0.2);color:var(--gold);">📌 Pinned</span>':'';
+      return `<div class="ann-card ${cls}"><div class="ann-meta">${pinBadge}<span class="ann-tag ${tag}">${tagLabel}</span><span>${a.ts||''}</span></div><div class="ann-title">${a.title}</div><div class="ann-body">${a.body}</div></div>`;
+    }).join('');
+  }
+  const nw=document.getElementById('news-widget');
+  if(nw) nw.innerHTML=ANNOUNCEMENTS.filter(a=>a.pin!=='classified').slice(0,4).map(a=>`<div class="ni"><div class="nid">${a.ts||''}</div><div class="nit">${a.title}</div></div>`).join('');
+}
+
+function renderFullTaxTable(){
+  const el=document.getElementById('full-tax-table'); if(!el)return;
+  el.innerHTML=`<table class="tbl"><thead><tr><th>Tax Category</th><th>Rate</th><th>Description</th></tr></thead><tbody>${TAXES.map(t=>`<tr><td><strong>${t.label}</strong></td><td style="font-family:'IBM Plex Mono',monospace;color:#8a6020;">${t.rate}</td><td>${t.desc}</td></tr>`).join('')}</tbody></table>`;
+}
+
+function renderBudgetPage(){
+  function bt(depts){ return `<table class="tbl"><thead><tr><th>Department</th><th>Monthly Budget</th><th>Status</th></tr></thead><tbody>${depts.map(d=>`<tr><td><strong>${d.name}</strong></td><td style="font-family:'IBM Plex Mono',monospace;color:#7a5c10;">${fmt(d.budget)}</td><td>${DEPT_STATUS[d.id]==='suspended'?'<span style="color:#a02020;font-family:\'IBM Plex Mono\',monospace;font-size:0.72rem;">SUSPENDED</span>':DEPT_STATUS[d.id]==='frozen'?'<span style="color:#4488ff;font-family:\'IBM Plex Mono\',monospace;font-size:0.72rem;">FROZEN</span>':'<span style="color:#1a6b3a;font-family:\'IBM Plex Mono\',monospace;font-size:0.72rem;">Active</span>'}</td></tr>`).join('')}</tbody></table>`; }
+  const f=document.getElementById('budget-federal'); const s=document.getElementById('budget-state'); const l=document.getElementById('budget-local');
+  if(f) f.innerHTML=bt(DEPTS.filter(d=>d.type==='Federal'));
+  if(s) s.innerHTML=bt(DEPTS.filter(d=>d.type==='State'));
+  if(l) l.innerHTML=bt(DEPTS.filter(d=>d.type==='Local'));
+}
+
+function renderNewsPage(){
+  const el=document.getElementById('news-full-list'); if(!el)return;
+  const visible=ANNOUNCEMENTS.filter(a=>a.pin!=='classified');
+  if(!visible.length){el.innerHTML='<p style="color:#888;font-family:\'IBM Plex Mono\',monospace;">No news items.</p>';return;}
+  el.innerHTML=visible.map(a=>{
+    const cls=a.cat==='urgent'?'urgent':a.cat==='info'?'info':'';
+    const tag=a.cat==='urgent'?'tag-urgent':a.cat==='info'?'tag-info':'tag-official';
+    const tagLabel=a.cat==='urgent'?'Urgent':a.cat==='info'?'Info':'Official';
+    return `<div class="ann-card ${cls}" style="margin-bottom:16px;"><div class="ann-meta"><span class="ann-tag ${tag}">${tagLabel}</span>${a.ts||''}</div><div class="ann-title">${a.title}</div><div class="ann-body">${a.body}</div></div>`;
+  }).join('');
+}
+
+function renderFAQ(){
+  const el=document.getElementById('faq-list'); if(!el)return;
+  el.innerHTML=FAQS.map((f,i)=>`<div style="border-bottom:1px solid rgba(0,0,0,0.07);padding:16px 0;"><div style="font-family:'Playfair Display',serif;font-size:1rem;color:#1a1a2e;margin-bottom:7px;cursor:pointer;" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'"><span style="color:#8a6020;margin-right:8px;">Q${i+1}.</span>${f.q}</div><div style="color:#445;font-size:0.9rem;line-height:1.75;padding-left:24px;">${f.a}</div></div>`).join('');
+}
+
+// ─── EMERGENCY UI ──────────────────────────────────────────
+function applyEmergencyUI(){
+  document.getElementById('alert-banner').style.display = EMERGENCY_STATE.alert?'block':'none';
+  document.getElementById('martial-overlay').classList.toggle('active', !!EMERGENCY_STATE.martial);
+  const es=document.getElementById('public-emergency-status');
+  if(es){
+    if(EMERGENCY_STATE.alert||EMERGENCY_STATE.martial){ es.innerHTML='<span style="color:#ff8888;">⚠ Emergency Active</span>'; es.style.color='#ff8888'; }
+    else{ es.innerHTML='● All Systems Normal'; es.style.color='#66cc88'; }
+  }
+  document.getElementById('emerg-last-update').textContent = ts();
+}
+
+function applyTickerMsg(msg){
+  const inner=document.getElementById('ticker-inner');
+  if(msg && inner) inner.innerHTML=`<span>SCRP TREASURY</span> · ${msg} · <span>SCRP TREASURY</span> · ${msg} ·`;
+}
+
+// ─── LOGIN ─────────────────────────────────────────────────
+window.submitAccessRequest = async function(){
+  const roblox=document.getElementById('entry-roblox').value.trim();
+  const discord=document.getElementById('entry-discord').value.trim();
+  const dept=document.getElementById('entry-dept').value;
+  hideEl('entry-error'); hideEl('entry-success');
+  if(!roblox||!discord){showErr('entry-error','Please enter both your Roblox and Discord usernames.');return;}
+  const bl=SANCTIONS.find(s=>s.type==='blacklist'&&s.target?.toLowerCase()===roblox.toLowerCase());
+  if(bl){showErr('entry-error','Your account has been flagged. Contact an administrator.');return;}
+  const existing=REQUESTS.find(r=>r.roblox?.toLowerCase()===roblox.toLowerCase());
+  if(existing){
+    if(existing.status==='approved'){currentUser={roblox,discord};openUserPortal();return;}
+    if(existing.status==='denied'){showErr('entry-error','Your access request was denied by the Secretary of the Treasury.');return;}
+    document.getElementById('pending-info').innerHTML=`Roblox: <strong>${roblox}</strong><br>Discord: <strong>${discord}</strong><br>Status: <span style="color:var(--gold)">Awaiting Review</span>`;
+    navigate('pending'); return;
+  }
+  const newReq = {roblox,discord,dept,status:'pending',ts:tsDate(),accessLevel:'standard'};
+  const newId = await fbAdd('requests', newReq);
+  if(newId) { newReq.id = newId; REQUESTS.unshift(newReq); }
+  document.getElementById('pending-info').innerHTML=`Roblox: <strong>${roblox}</strong><br>Discord: <strong>${discord}</strong><br>Dept: <strong>${dept||'Not specified'}</strong><br>Status: <span style="color:var(--gold)">Awaiting Review</span>`;
+  navigate('pending');
+};
+
+window.sotLogin = function(){
+  if(sotLocked){document.getElementById('lockout-msg').style.display='block';return;}
+  const user=document.getElementById('sot-user').value.trim();
+  const pass=document.getElementById('sot-pass').value;
+  document.getElementById('sot-error').style.display='none';
+  if(user===SOT_CREDS.user&&pass===SOT_CREDS.pass){
+    sotLoginAttempts=0; sotLoggedIn=true;
+    document.getElementById('topbar-badge').textContent='Secretary of Treasury';
+    document.getElementById('topbar-badge').className='topbar-badge topsec';
+    document.getElementById('topbar-badge').style.display='';
+    document.getElementById('topbar-logout').style.display='';
+    document.getElementById('classif-badge').style.display='block';
+    document.getElementById('classif-label').style.display='block';
+    audit('Authenticated as Secretary of Treasury','log-good');
+    navigate('sot-dashboard');
+  } else {
+    sotLoginAttempts++;
+    audit(`Failed login attempt (${sotLoginAttempts}/3) — user: "${user}"`, 'log-danger');
+    if(sotLoginAttempts>=3){
+      sotLocked=true;
+      document.getElementById('lockout-msg').style.display='block';
+      setTimeout(()=>{sotLocked=false;sotLoginAttempts=0;hideEl('lockout-msg');},30000);
+    } else {
+      document.getElementById('sot-error').style.display='block';
+    }
+  }
+};
+
+// ─── SOT DASHBOARD ─────────────────────────────────────────
+function renderSOTDash(){
+  renderStatCards(); renderReqLists(); renderDeptManagement();
+  renderBudgetControl(); renderAnnSOT(); renderTaxEditor();
+  renderPriceEditor(); renderMultiplierEditor(); renderEmergencyPanel();
+  renderAuditLog(); renderUserManagement(); renderSanctionsList();
+}
+
+window.sotPanel = function(id){
+  document.querySelectorAll('.sot-panel-section').forEach(p=>p.classList.remove('active'));
+  document.getElementById('sp-'+id)?.classList.add('active');
+  document.querySelectorAll('.sot-nav-item').forEach(n=>n.classList.remove('active'));
+  const map={overview:0,audit:1,requests:2,users:3,departments:4,budgets:5,announcements:6,'ticker-edit':7,taxes:8,prices:9,multipliers:10,emergency:11,sanctions:12};
+  const items=document.querySelectorAll('.sot-nav-item');
+  if(map[id]!==undefined&&items[map[id]]) items[map[id]].classList.add('active');
+};
+
+function renderStatCards(){
+  const pending=REQUESTS.filter(r=>r.status==='pending').length;
+  const approved=REQUESTS.filter(r=>r.status==='approved').length;
+  const suspended=Object.values(DEPT_STATUS).filter(s=>s==='suspended').length;
+  const frozen=Object.values(DEPT_STATUS).filter(s=>s==='frozen').length;
+  const pct=document.getElementById('req-pending-ct');
+  if(pct) pct.textContent=pending?`(${pending})`:'';
+  const badgeEl=document.getElementById('req-badge-ct');
+  if(badgeEl){badgeEl.textContent=pending;badgeEl.style.display=pending>0?'':'none';}
+  document.getElementById('stat-cards').innerHTML=`
+    <div class="sc"><div class="scl">Pending Requests</div><div class="scv">${pending}</div><div class="scs">Awaiting review</div></div>
+    <div class="sc"><div class="scl">Approved Users</div><div class="scv">${approved}</div><div class="scs">Active portal access</div></div>
+    <div class="sc"><div class="scl">Active Depts</div><div class="scv">${DEPTS.length-suspended-frozen}</div><div class="scs">Of ${DEPTS.length} total</div></div>
+    <div class="sc"><div class="scl">Suspended</div><div class="scv" style="color:#ff8888;">${suspended}</div><div class="scs">${frozen} frozen</div></div>
+    <div class="sc"><div class="scl">Active Sanctions</div><div class="scv" style="color:#ffaa66;">${SANCTIONS.length}</div><div class="scs">On record</div></div>
+    <div class="sc"><div class="scl">Audit Events</div><div class="scv">${AUDIT_LOG.length}</div><div class="scs">Total logged</div></div>`;
+  const recent=REQUESTS.slice(0,5);
+  document.getElementById('overview-requests').innerHTML=recent.length?`<table class="data-table"><thead><tr><th>Roblox</th><th>Dept</th><th>Status</th></tr></thead><tbody>${recent.map(r=>`<tr><td class="mono">${r.roblox}</td><td class="mono" style="font-size:0.7rem;">${r.dept||'—'}</td><td><span class="status-badge s-${r.status}">${r.status}</span></td></tr>`).join('')}</tbody></table>`:'<div class="empty-state">No requests yet.</div>';
+  const recentAudit=AUDIT_LOG.slice(0,5);
+  document.getElementById('overview-audit').innerHTML=recentAudit.length?recentAudit.map(a=>`<div class="audit-entry ${a.cls}"><span class="at">${a.ts}</span><span class="av">${a.type}</span><span class="am">${a.action}</span></div>`).join(''):'<div class="empty-state">No events logged.</div>';
+}
+
+function renderReqLists(){
+  const pending=REQUESTS.filter(r=>r.status==='pending');
+  const pct=document.getElementById('req-pending-ct');
+  if(pct) pct.textContent=pending.length?`(${pending.length})`:'';
+  ['pending','approved','denied'].forEach(s=>{
+    const list=REQUESTS.filter(r=>r.status===s);
+    const el=document.getElementById('req-list-'+s); if(!el)return;
+    if(!list.length){el.innerHTML='<div class="empty-state">No '+s+' requests.</div>';return;}
+    el.innerHTML=`<table class="data-table"><thead><tr><th>Roblox</th><th>Discord</th><th>Dept</th><th>Date</th><th>Status</th>${s==='pending'?'<th>Actions</th>':''}</tr></thead><tbody>${list.map(r=>`<tr><td class="mono">${r.roblox}</td><td class="mono">${r.discord}</td><td class="mono" style="font-size:0.7rem;">${r.dept||'—'}</td><td class="mono" style="font-size:0.68rem;color:var(--text-dim);">${r.ts||''}</td><td><span class="status-badge s-${r.status}">${r.status}</span></td>${s==='pending'?`<td><div class="action-btns"><button class="abtn abtn-approve" onclick="window.processReq('${r.id}','approved')">✓ Approve</button><button class="abtn abtn-deny" onclick="window.processReq('${r.id}','denied')">✕ Deny</button></div></td>`:''}</tr>`).join('')}</tbody></table>`;
+  });
+}
+
+window.processReq = async function(id, status){
+  const r=REQUESTS.find(r=>r.id===id);
+  await fbUpdate('requests/'+id,{status});
+  audit(`${status==='approved'?'Approved':'Denied'} access for ${r?.roblox||id}`, status==='approved'?'log-good':'log-danger');
+};
+
+window.reqTab = function(s){
+  document.querySelectorAll('#sp-requests .tab-btn').forEach((b,i)=>{const t=['pending','approved','denied'];b.classList.toggle('active',t[i]===s);});
+  document.querySelectorAll('#sp-requests .tab-content').forEach(t=>{t.classList.toggle('active',t.id==='req-tab-'+s);});
+};
+
+function renderUserManagement(){
+  const el=document.getElementById('user-management-list'); if(!el)return;
+  const approved=REQUESTS.filter(r=>r.status==='approved');
+  if(!approved.length){el.innerHTML='<div class="empty-state">No approved users yet.</div>';return;}
+  el.innerHTML=`<table class="data-table"><thead><tr><th>Roblox</th><th>Discord</th><th>Dept</th><th>Access Level</th><th>Joined</th><th>Actions</th></tr></thead><tbody>${approved.map(r=>`<tr><td class="mono">${r.roblox}</td><td class="mono">${r.discord}</td><td class="mono" style="font-size:0.7rem;">${r.dept||'—'}</td><td><span class="status-badge" style="background:rgba(201,168,76,0.15);color:var(--gold);border:1px solid rgba(201,168,76,0.3);">${r.accessLevel||'standard'}</span></td><td class="mono" style="font-size:0.68rem;color:var(--text-dim);">${r.ts||''}</td><td><div class="action-btns"><button class="abtn abtn-deny" onclick="window.revokeUser('${r.id}')">✕ Revoke</button><button class="abtn abtn-watch" onclick="window.promoteUser('${r.id}')">↑ Promote</button></div></td></tr>`).join('')}</tbody></table>`;
+}
+
+window.revokeUser = async function(id){
+  const r=REQUESTS.find(x=>x.id===id);
+  await fbUpdate('requests/'+id,{status:'denied'});
+  audit(`Revoked access for ${r?.roblox||id}`,'log-danger');
+};
+window.promoteUser = async function(id){
+  const r=REQUESTS.find(x=>x.id===id);
+  const newLevel=r?.accessLevel==='standard'?'elevated':'standard';
+  await fbUpdate('requests/'+id,{accessLevel:newLevel});
+  audit(`Changed access level for ${r?.roblox||id} to ${newLevel}`,'log-warn');
+};
+
+function renderDeptManagement(){
+  const el=document.getElementById('dept-management-table'); if(!el)return;
+  el.innerHTML=`<table class="data-table"><thead><tr><th>Department</th><th>Level</th><th>Budget</th><th>Status</th><th>Actions</th></tr></thead><tbody>${DEPTS.map(d=>{
+    const st=DEPT_STATUS[d.id]; const wl=DEPT_WATCHLIST[d.id];
+    const stBadge=st==='suspended'?'s-suspended':st==='frozen'?'s-frozen':wl?'s-watchlist':'s-approved';
+    const stLabel=st==='suspended'?'Suspended':st==='frozen'?'Frozen':wl?'Watchlist':'Active';
+    return `<tr><td><strong>${d.name}</strong></td><td class="mono" style="font-size:0.7rem;">${d.type}</td><td class="mono">${fmt(d.budget)}</td><td><span class="status-badge ${stBadge}">${stLabel}</span></td><td><div class="action-btns">
+      ${st==='active'||st==='watchlist'?`<button class="abtn abtn-suspend" onclick="window.toggleSuspend('${d.id}','suspended')">⚠ Suspend</button>`:''}
+      ${st==='active'?`<button class="abtn abtn-freeze" onclick="window.toggleSuspend('${d.id}','frozen')">🧊 Freeze</button>`:''}
+      ${st!=='active'?`<button class="abtn abtn-reinstate" onclick="window.toggleSuspend('${d.id}','active')">✓ Reinstate</button>`:''}
+      ${!wl?`<button class="abtn abtn-watch" onclick="window.toggleWatch('${d.id}',true)">⚑ Watch</button>`:`<button class="abtn abtn-neutral" onclick="window.toggleWatch('${d.id}',false)">✗ Unwatch</button>`}
+    </div></td></tr>`;
+  }).join('')}</tbody></table>`;
+}
+
+window.toggleSuspend = async function(id, newStatus){
+  DEPT_STATUS[id]=newStatus;
+  await savePortalState();
+  audit(`Set ${id} status to ${newStatus}`, newStatus==='active'?'log-good':'log-danger');
+};
+window.toggleWatch = async function(id, state){
+  DEPT_WATCHLIST[id]=state;
+  await savePortalState();
+  audit(`${state?'Added':'Removed'} ${id} from watchlist`,'log-warn');
+};
+
+function renderBudgetControl(){
+  const el=document.getElementById('budget-control-table'); if(!el)return;
+  el.innerHTML=`<div class="info-note">Adjust department budgets. Changes reflect immediately on the portal.</div>
+    <table class="data-table"><thead><tr><th>Department</th><th>Current Budget</th><th>New Budget</th><th>Actions</th></tr></thead><tbody>${DEPTS.map(d=>`<tr>
+      <td><strong>${d.name}</strong></td><td class="mono">${fmt(d.budget)}</td>
+      <td><input type="number" id="budg-${d.id}" value="${d.budget}" style="width:160px;padding:6px 10px;font-size:0.78rem;" /></td>
+      <td><div class="action-btns">
+        <button class="abtn abtn-approve" onclick="window.setBudget('${d.id}')">💾 Set</button>
+        <button class="abtn abtn-suspend" onclick="window.penalizeBudget('${d.id}',0.5)">-50%</button>
+        <button class="abtn abtn-suspend" onclick="window.penalizeBudget('${d.id}',0.75)">-25%</button>
+        <button class="abtn abtn-reinstate" onclick="window.grantBudget('${d.id}')">+ Grant</button>
+        <button class="abtn abtn-neutral" onclick="window.resetBudget('${d.id}')">↺ Reset</button>
+      </div></td>
+    </tr>`).join('')}</tbody></table>`;
+}
+
+window.setBudget = async function(id){
+  const inp=document.getElementById('budg-'+id); const val=parseFloat(inp.value)||0;
+  const d=DEPTS.find(x=>x.id===id); if(!d)return;
+  const old=d.budget; d.budget=val;
+  await savePortalState();
+  audit(`Set ${id} budget: ${fmt(old)} → ${fmt(val)}`,'log-warn');
+  renderBudgetControl();
+};
+window.penalizeBudget = async function(id, mult){
+  const d=DEPTS.find(x=>x.id===id); if(!d)return;
+  const old=d.budget; d.budget=Math.round(d.budget*mult);
+  await savePortalState();
+  audit(`Applied ${Math.round((1-mult)*100)}% penalty to ${id}: ${fmt(old)} → ${fmt(d.budget)}`,'log-danger');
+  renderBudgetControl();
+};
+window.grantBudget = async function(id){
+  const grant=parseFloat(prompt('Enter grant amount in USD:')||0);
+  if(!grant||grant<=0)return;
+  const d=DEPTS.find(x=>x.id===id); if(!d)return;
+  d.budget+=grant;
+  await savePortalState();
+  audit(`Granted ${fmt(grant)} to ${id}. New budget: ${fmt(d.budget)}`,'log-good');
+  renderBudgetControl();
+};
+window.resetBudget = async function(id){
+  const d=DEPTS.find(x=>x.id===id); const def=DEFAULT_DEPTS.find(x=>x.id===id);
+  if(!d||!def)return;
+  d.budget=def.budget;
+  await savePortalState();
+  audit(`Reset ${id} budget to default: ${fmt(def.budget)}`,'log-warn');
+  renderBudgetControl();
+};
+
+// ─── ANNOUNCEMENTS ─────────────────────────────────────────
+function renderAnnSOT(){
+  const el=document.getElementById('ann-list-sot'); if(!el)return;
+  if(!ANNOUNCEMENTS.length){el.innerHTML='<div class="empty-state">No announcements posted.</div>';return;}
+  el.innerHTML=`<table class="data-table"><thead><tr><th>Title</th><th>Category</th><th>Pin</th><th>Date</th><th>Actions</th></tr></thead><tbody>${ANNOUNCEMENTS.map(a=>`<tr>
+    <td>${a.title}</td><td class="mono" style="font-size:0.68rem;">${a.cat}</td>
+    <td class="mono" style="font-size:0.68rem;color:${a.pin==='classified'?'#ff8888':a.pin==='pinned'?'var(--gold)':'var(--text-dim)'};">${a.pin}</td>
+    <td class="mono" style="font-size:0.68rem;color:var(--text-dim);">${a.ts||''}</td>
+    <td><div class="action-btns">
+      <button class="abtn abtn-deny" onclick="window.deleteAnn('${a.id}')">✕ Remove</button>
+      <button class="abtn abtn-watch" onclick="window.toggleAnnPin('${a.id}')">📌 Toggle Pin</button>
+    </div></td>
+  </tr>`).join('')}</tbody></table>`;
+}
+
+window.postAnnouncement = async function(){
+  const title=document.getElementById('ann-title').value.trim();
+  const body=document.getElementById('ann-body').value.trim();
+  const cat=document.getElementById('ann-cat').value;
+  const pin=document.getElementById('ann-pin').value;
+  if(!title||!body)return;
+  await fbAdd('announcements',{title,body,cat,pin,ts:tsDate()});
+  document.getElementById('ann-title').value='';
+  document.getElementById('ann-body').value='';
+  audit(`Posted announcement: "${title}" (${cat})`,'log-good');
+  showSuccess('ann-success','Announcement posted successfully.');
+};
+
+window.deleteAnn = async function(id){
+  const a=ANNOUNCEMENTS.find(x=>x.id===id);
+  await fbDelete('announcements/'+id);
+  audit(`Removed announcement: "${a?.title||id}"`,'log-warn');
+};
+window.toggleAnnPin = async function(id){
+  const a=ANNOUNCEMENTS.find(x=>x.id===id); if(!a)return;
+  const newPin=a.pin==='pinned'?'standard':'pinned';
+  await fbUpdate('announcements/'+id,{pin:newPin});
+  audit(`Toggled pin on "${a.title}"`,'log-warn');
+};
+
+window.updateTicker = async function(){
+  const msg=document.getElementById('ticker-input').value.trim(); if(!msg)return;
+  TICKER_MSG=msg;
+  applyTickerMsg(msg);
+  await savePortalState();
+  audit('Updated ticker feed','log-good');
+  showSuccess('ticker-saved','Ticker updated.');
+};
+
+// ─── TAXES ─────────────────────────────────────────────────
+function renderTaxEditor(){
+  const el=document.getElementById('tax-editor'); if(!el)return;
+  el.innerHTML=`<div class="price-box" style="grid-column:1/-1;"><h4>Tax Rates</h4><div>${TAXES.map((t,i)=>`
+    <div class="price-row"><label style="flex:0 0 110px;">${t.label}</label>
+    <input type="text" id="taxr-${i}" value="${t.rate}" style="flex:0 0 80px;" />
+    <input type="text" id="taxd-${i}" value="${t.desc}" />
+    <button class="abtn abtn-deny" onclick="window.removeTax(${i})">✕</button>
+    </div>`).join('')}</div></div>`;
+}
+
+window.addTaxRow = async function(){
+  TAXES.push({label:'New Tax',rate:'0%',desc:'Description'});
+  audit('Added new tax category','log-warn');
+  renderTaxEditor();
+};
+window.removeTax = async function(i){
+  const t=TAXES[i]; TAXES.splice(i,1);
+  audit(`Removed tax: ${t.label}`,'log-warn');
+  renderTaxEditor();
+};
+window.saveTaxRates = async function(){
+  TAXES.forEach((t,i)=>{ const r=document.getElementById('taxr-'+i); const d=document.getElementById('taxd-'+i); if(r)t.rate=r.value.trim(); if(d)t.desc=d.value.trim(); });
+  await savePortalState();
+  audit('Updated tax rates','log-warn');
+  showSuccess('tax-saved','Tax rates saved and published.');
+  renderPublicHome(); renderFullTaxTable();
+};
+
+// ─── PRICES ────────────────────────────────────────────────
+function renderPriceEditor(){
+  const el=document.getElementById('price-editor'); if(!el)return;
+  el.innerHTML=`<div class="price-grid">
+    <div class="price-box"><h4>Uniform — Initial</h4>${Object.entries(PRICES.uniform_initial).map(([k,v])=>`<div class="price-row"><label>${k}</label><input type="number" value="${v}" oninput="PRICES.uniform_initial['${k}']=+this.value;recalcAll()" /></div>`).join('')}</div>
+    <div class="price-box"><h4>Uniform — Monthly</h4>${Object.entries(PRICES.uniform_monthly).map(([k,v])=>`<div class="price-row"><label>${k}</label><input type="number" value="${v}" oninput="PRICES.uniform_monthly['${k}']=+this.value;recalcAll()" /></div>`).join('')}</div>
+    <div class="price-box"><h4>Vehicle — New (per 10)</h4>${Object.entries(PRICES.vehicle_new).map(([k,v])=>`<div class="price-row"><label>${k}</label><input type="number" value="${v}" oninput="PRICES.vehicle_new['${k}']=+this.value;recalcAll()" /></div>`).join('')}</div>
+    <div class="price-box"><h4>Vehicle — Monthly (per 10)</h4>${Object.entries(PRICES.vehicle_monthly).map(([k,v])=>`<div class="price-row"><label>${k}</label><input type="number" value="${v}" oninput="PRICES.vehicle_monthly['${k}']=+this.value;recalcAll()" /></div>`).join('')}</div>
+    ${Object.entries(PRICES.weapon).map(([wpn,tiers])=>`<div class="price-box"><h4>${wpn} (per 100)</h4>${Object.entries(tiers).map(([tier,val])=>`<div class="price-row"><label>${tier}</label><input type="number" value="${val??0}" oninput="PRICES.weapon['${wpn}']['${tier}']=+this.value||null;recalcAll()" /></div>`).join('')}</div>`).join('')}
+    <div class="price-box"><h4>Other</h4>
+      <div class="price-row"><label>Heli/min</label><input type="number" value="${PRICES.heli_per_min}" oninput="PRICES.heli_per_min=+this.value;window.updateHeliDisplay();recalcAll()" /></div>
+      <div class="price-row"><label>Subdiv/mo</label><input type="number" value="${PRICES.subdiv_monthly}" oninput="PRICES.subdiv_monthly=+this.value;recalcAll()" /></div>
+    </div>
+  </div>`;
+}
+
+window.savePrices = async function(){ await savePortalState(); audit('Updated procurement prices','log-warn'); showSuccess('prices-saved','Prices saved.'); };
+
+// ─── MULTIPLIERS ───────────────────────────────────────────
+const MULT_CATS=['uniform_initial','uniform_monthly','vehicle_new','vehicle_monthly','weapon','heli_per_min','subdiv_monthly'];
+function renderMultiplierEditor(){
+  const el=document.getElementById('multiplier-editor'); if(!el)return;
+  el.innerHTML=`<div class="price-grid">${MULT_CATS.map(c=>`<div class="price-box"><h4>${c.replace(/_/g,' ')}</h4><div class="price-row"><label>Multiplier</label><input type="number" id="mult_${c}" value="1.0" step="0.05" min="0.1" /></div><button class="abtn abtn-approve" onclick="window.applyMult('${c}')" style="margin-top:10px;width:100%;padding:7px;">Apply ✖️</button></div>`).join('')}</div>`;
+}
+window.applyMult = async function(cat){
+  const inp=document.getElementById('mult_'+cat); if(!inp)return;
+  const mult=parseFloat(inp.value)||1; if(mult===1)return;
+  if(cat==='heli_per_min') PRICES.heli_per_min=Math.round(PRICES.heli_per_min*mult);
+  else if(cat==='subdiv_monthly') PRICES.subdiv_monthly=Math.round(PRICES.subdiv_monthly*mult);
+  else if(cat==='weapon') Object.keys(PRICES.weapon).forEach(w=>Object.keys(PRICES.weapon[w]).forEach(t=>{ if(PRICES.weapon[w][t]!==null) PRICES.weapon[w][t]=Math.round(PRICES.weapon[w][t]*mult); }));
+  else Object.keys(PRICES[cat]).forEach(k=>{ PRICES[cat][k]=Math.round(PRICES[cat][k]*mult); });
+  await savePortalState();
+  audit(`Applied ${mult}x multiplier to ${cat}`,'log-warn');
+  showSuccess('mult-saved',`${mult}x applied to ${cat}.`);
+  renderPriceEditor(); recalcAll();
+};
+
+// ─── EMERGENCY ─────────────────────────────────────────────
+const emergencyCards=[
+  {id:'alert',label:'Public Alert Banner',desc:'Display a prominent alert banner to all portal visitors.',field:'alert'},
+  {id:'martial',label:'Martial Law Declaration',desc:'Trigger a full-screen martial law overlay.',field:'martial'},
+  {id:'budgetFreeze',label:'Budget Freeze',desc:'Freeze all department financial activity.',field:'budgetFreeze'},
+  {id:'lockdown',label:'Portal Lockdown',desc:'Restrict portal access to Secretary only.',field:'lockdown'},
+];
+
+function renderEmergencyPanel(){
+  const el=document.getElementById('emergency-grid'); if(!el)return;
+  el.innerHTML=emergencyCards.map(e=>{
+    const on=!!EMERGENCY_STATE[e.field];
+    return `<div class="emerg-card ${on?'active-emerg':''}"><h4>${e.label}</h4><p>${e.desc}</p><div class="emerg-status ${on?'on':'off'}">${on?'● ACTIVE':'○ INACTIVE'}</div><button class="btn ${on?'btn-secondary':'btn-red'}" onclick="window.toggleEmergency('${e.field}')">${on?'Deactivate':'Activate'}</button></div>`;
+  }).join('');
+}
+
+window.toggleEmergency = async function(field){
+  EMERGENCY_STATE[field]=!EMERGENCY_STATE[field];
+  const on=EMERGENCY_STATE[field];
+  if(on&&(field==='alert'||field==='martial')){
+    const inner=document.getElementById('ticker-inner');
+    inner.innerHTML='<span style="color:#ff4444;">⚠ EMERGENCY DECLARATION ACTIVE</span> · ALL DEPARTMENTS REPORT TO COMMAND · SCRP EXECUTIVE ORDER IN EFFECT · <span style="color:#ff4444;">⚠ EMERGENCY DECLARATION ACTIVE</span> · ALL DEPARTMENTS REPORT TO COMMAND ·';
+  }
+  await savePortalState();
+  audit(`${on?'Activated':'Deactivated'} emergency: ${field}`, on?'log-danger':'log-good');
+};
+
+window.liftMartialLaw = async function(){
+  EMERGENCY_STATE.martial=false;
+  await savePortalState();
+  audit('Lifted martial law declaration','log-good');
+};
+
+window.confirmEmergency = function(action, title, msg){
+  openModal(title, msg, 'Confirm', async ()=>{
+    if(action==='budget-freeze'){ DEPTS.forEach(d=>{if(DEPT_STATUS[d.id]==='active')DEPT_STATUS[d.id]='frozen';}); audit('Froze all department budgets','log-danger'); }
+    if(action==='mass-suspend'){ DEPTS.forEach(d=>DEPT_STATUS[d.id]='suspended'); audit('Mass suspended all departments','log-danger'); }
+    if(action==='mass-reinstate'){ DEPTS.forEach(d=>DEPT_STATUS[d.id]='active'); audit('Mass reinstated all departments','log-good'); }
+    if(action==='budget-reset'){ DEPTS.forEach(d=>{const def=DEFAULT_DEPTS.find(x=>x.id===d.id);if(def)d.budget=def.budget;}); audit('Reset all budgets to default','log-warn'); }
+    await savePortalState();
+  });
+};
+
+// ─── SANCTIONS ─────────────────────────────────────────────
+function renderSanctionsList(){
+  const el=document.getElementById('sanctions-list'); if(!el)return;
+  if(!SANCTIONS.length){el.innerHTML='<div class="empty-state">No active sanctions.</div>';return;}
+  el.innerHTML=`<table class="data-table"><thead><tr><th>Target</th><th>Type</th><th>Reason</th><th>Issued</th><th>Action</th></tr></thead><tbody>${SANCTIONS.map(s=>`<tr><td class="mono">${s.target}</td><td><span class="status-badge s-watchlist">${s.type}</span></td><td style="font-size:0.78rem;color:var(--text-dim);">${s.reason||'—'}</td><td class="mono" style="font-size:0.68rem;color:var(--text-dim);">${s.ts||''}</td><td><button class="abtn abtn-neutral" onclick="window.removeSanction('${s.id}')">✕ Lift</button></td></tr>`).join('')}</tbody></table>`;
+}
+
+window.issueSanction = async function(){
+  const target=document.getElementById('sanction-target').value.trim();
+  const type=document.getElementById('sanction-type').value;
+  const reason=document.getElementById('sanction-reason').value.trim();
+  if(!target)return;
+  await fbAdd('sanctions',{target,type,reason,ts:ts()});
+  audit(`Issued sanction (${type}) against ${target}`,'log-danger');
+  showSuccess('sanction-success',`Sanction issued against ${target}.`);
+  document.getElementById('sanction-target').value='';
+  document.getElementById('sanction-reason').value='';
+};
+
+window.removeSanction = async function(id){
+  const s=SANCTIONS.find(x=>x.id===id);
+  await fbDelete('sanctions/'+id);
+  audit(`Lifted sanction against ${s?.target||id}`,'log-good');
+};
+
+// ─── AUDIT LOG ─────────────────────────────────────────────
+function renderAuditLog(){
+  const filter=document.getElementById('audit-filter')?.value||'all';
+  const el=document.getElementById('audit-log-list'); if(!el)return;
+  const list=filter==='all'?AUDIT_LOG:AUDIT_LOG.filter(a=>a.cls===filter);
+  if(!list.length){el.innerHTML='<div class="empty-state">No audit events logged yet.</div>';return;}
+  el.innerHTML=list.map(a=>`<div class="audit-entry ${a.cls}"><span class="at">${a.ts}</span><span class="av">${a.type}</span><span class="am">${a.action}</span></div>`).join('');
+}
+window.renderAuditLog = renderAuditLog;
+
+window.clearAuditLog = async function(){
+  const snap=await getDocs(collection(db,'audit'));
+  for(const d of snap.docs) await fbDelete('audit/'+d.id);
+  audit('Audit log cleared','log-warn');
+};
+
+// ─── MODAL ─────────────────────────────────────────────────
+let _modalCb=null;
+function openModal(title,msg,confirmLabel,cb){
+  document.getElementById('modal-title').textContent=title;
+  document.getElementById('modal-msg').textContent=msg;
+  document.getElementById('modal-confirm').textContent=confirmLabel||'Confirm';
+  document.getElementById('modal-input').style.display='none';
+  _modalCb=cb;
+  document.getElementById('modal-overlay').classList.add('open');
+}
+window.closeModal = function(){ document.getElementById('modal-overlay').classList.remove('open'); _modalCb=null; };
+document.getElementById('modal-confirm').onclick=()=>{ if(_modalCb)_modalCb(); _modalCb=null; closeModal(); };
+
+// ─── USER PORTAL ───────────────────────────────────────────
+function openUserPortal(){
+  document.getElementById('topbar-badge').textContent=currentUser.roblox;
+  document.getElementById('topbar-badge').className='topbar-badge';
+  document.getElementById('topbar-badge').style.display='';
+  document.getElementById('topbar-logout').style.display='';
+  navigate('user-portal');
+}
+
+function renderUserPortal(){
+  const grid=document.getElementById('dept-grid'); if(!grid)return;
+  grid.innerHTML=DEPTS.map(d=>{
+    const st=DEPT_STATUS[d.id];
+    const susp=st==='suspended'; const froz=EMERGENCY_STATE.budgetFreeze||st==='frozen';
+    return `<div class="dept-card${susp?' suspended-dept':froz?' frozen-dept':''}" id="dc-${d.id}" onclick="window.selectDept('${d.id}')">
+      <div class="dct">${d.type}</div><div class="dcn">${d.name}</div><div class="dcb">${fmt(d.budget)}/mo</div>
+      ${susp?'<div style="color:#ff8888;font-size:0.58rem;font-family:\'IBM Plex Mono\',monospace;margin-top:5px;">SUSPENDED</div>':''}
+      ${froz&&!susp?'<div style="color:#88aaff;font-size:0.58rem;font-family:\'IBM Plex Mono\',monospace;margin-top:5px;">FROZEN</div>':''}
+    </div>`;
+  }).join('');
+  initRows();
+}
+
+window.selectDept = function(id){ document.querySelectorAll('.dept-card').forEach(c=>c.classList.remove('selected')); document.getElementById('dc-'+id)?.classList.add('selected'); selectedDeptId=id; };
+
+window.proceedToOrder = function(){
+  if(!selectedDeptId){alert('Please select a department.');return;}
+  if(DEPT_STATUS[selectedDeptId]==='suspended'){alert('This department is currently suspended.');return;}
+  if(EMERGENCY_STATE.budgetFreeze||DEPT_STATUS[selectedDeptId]==='frozen'){alert("This department's budget is currently frozen.");return;}
+  const d=DEPTS.find(x=>x.id===selectedDeptId);
+  document.getElementById('sel-dept-badge').textContent=`${d.name} — ${d.type} · Budget: ${fmt(d.budget)}/mo`;
+  document.getElementById('dept-budget-note').textContent=`Monthly budget: ${fmt(d.budget)}. Orders must remain within this allocation.`;
+  document.getElementById('portal-step-dept').style.display='none';
+  document.getElementById('portal-step-order').style.display='block';
+  document.getElementById('portal-step-confirm').style.display='none';
+  document.getElementById('suspended-banner').style.display='none';
+  document.getElementById('frozen-banner').style.display='none';
+  window.updateHeliDisplay(); recalcAll();
+};
+
+window.backToDept = function(){ document.getElementById('portal-step-dept').style.display='block'; document.getElementById('portal-step-order').style.display='none'; };
+
+window.submitOrder = function(){
+  document.getElementById('portal-step-order').style.display='none';
+  document.getElementById('portal-step-confirm').style.display='block';
+  document.getElementById('order-ref-num').textContent='ORD-'+Math.floor(Math.random()*900000+100000)+'-'+Date.now().toString().slice(-4);
+};
+
+window.newOrder = function(){
+  selectedDeptId=null; document.querySelectorAll('.dept-card').forEach(c=>c.classList.remove('selected'));
+  initRows();
+  document.getElementById('portal-step-dept').style.display='block';
+  document.getElementById('portal-step-order').style.display='none';
+  document.getElementById('portal-step-confirm').style.display='none';
+};
+
+function initRows(){
+  const vr=document.getElementById('vehicle-rows'); const wr=document.getElementById('weapon-rows');
+  if(vr)vr.innerHTML=''; if(wr)wr.innerHTML='';
+  addVehicleRow(); addWeaponRow();
+  ['uni-type','uni-qty','uni-cost-show','heli-mins','subdiv-qty','order-notes','uniform-codes'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
+  ['uniform-livery-note','uniform-code-input'].forEach(id=>{const e=document.getElementById(id);if(e)e.style.display='none';});
+}
+
+window.checkFirstTimePurchase = function(){ const type=document.getElementById('uni-type').value; const show=type==='initial'; document.getElementById('uniform-livery-note').style.display=show?'block':'none'; document.getElementById('uniform-code-input').style.display=show?'block':'none'; };
+
+window.updateHeliDisplay = function(){ const el=document.getElementById('heli-rate-display'); if(el)el.textContent=fmt(PRICES.heli_per_min); };
+
+window.addVehicleRow = function(){
+  const div=document.createElement('div'); div.className='vehicle-entry'; div.style.marginBottom='12px';
+  div.innerHTML=`<div class="prow prow-4" style="margin-bottom:6px;">
+    <div class="form-group"><label>Vehicle Type</label><select class="veh-type" onchange="recalcAll();window.checkVehFirst(this)"><option value="">— Select —</option><option>Sedan</option><option>SUV</option><option>Van</option><option>Truck</option><option>Armored Truck</option></select></div>
+    <div class="form-group"><label>Quantity (min 10)</label><input type="number" class="veh-qty" min="10" max="1000" placeholder="10" oninput="recalcAll()" /></div>
+    <div class="form-group"><label>Cost Type</label><select class="veh-cost-type" onchange="recalcAll();window.checkVehFirst(this)"><option value="new">New Purchase</option><option value="monthly">Monthly Maintenance</option></select></div>
+    <button class="remove-btn" onclick="this.closest('.vehicle-entry').remove();recalcAll()">✕</button>
+  </div>
+  <div class="prow" style="grid-template-columns:1fr 1fr;margin-top:2px;">
+    <div class="form-group"><label>Livery 1 Code</label><input type="text" class="liv1" placeholder="e.g. LVR-001" /></div>
+    <div class="form-group"><label>Livery 2 Code (optional)</label><input type="text" class="liv2" placeholder="e.g. LVR-002" /></div>
+  </div>
+  <div class="livery-note veh-livery-note" style="margin-bottom:12px;">📋 <strong>First-Time Purchase:</strong> Send your Livery Code(s) to the Secretary of Treasury.</div>`;
+  document.getElementById('vehicle-rows').appendChild(div);
+};
+
+window.checkVehFirst = function(el){ const entry=el.closest('.vehicle-entry'); const ct=entry.querySelector('.veh-cost-type').value; entry.querySelector('.veh-livery-note').style.display=ct==='new'?'block':'none'; };
+
+window.addWeaponRow = function(){
+  const div=document.createElement('div'); div.className='weapon-entry prow'; div.style.gridTemplateColumns='1fr 1fr auto'; div.style.marginBottom='10px';
+  div.innerHTML=`<div class="form-group"><label>Weapon Type</label><select class="wpn-type" onchange="recalcAll()"><option value="">— Select —</option><option>Pistol</option><option>Shotgun</option><option>Rifle</option><option>Sniper</option></select></div>
+    <div class="form-group"><label>Bulk Orders (×100 units)</label><input type="number" class="wpn-qty" min="1" placeholder="1" oninput="recalcAll()" /></div>
+    <button class="remove-btn" onclick="this.closest('.weapon-entry').remove();recalcAll()">✕</button>`;
+  document.getElementById('weapon-rows').appendChild(div);
+};
+
+function getDeptTier(id){ return (DEPTS.find(x=>x.id===id)||{tier:'local'}).tier; }
+function getWpnTier(id){ const t=getDeptTier(id); return t==='dot'?'local':t; }
+
+function recalcAll(){
+  if(!selectedDeptId)return;
+  const dept=DEPTS.find(d=>d.id===selectedDeptId);
+  const utier=getDeptTier(selectedDeptId); const wtier=getWpnTier(selectedDeptId);
+  const lines=[]; let total=0;
+  const utype=document.getElementById('uni-type')?.value; const uqty=parseInt(document.getElementById('uni-qty')?.value)||0;
+  if(utype&&uqty>0){ const up=utype==='initial'?PRICES.uniform_initial:PRICES.uniform_monthly; const c=up[utier]*uqty; lines.push({label:`Uniforms (${utype==='initial'?'Initial':'Monthly'}) ×${uqty}`,amt:c}); total+=c; const us=document.getElementById('uni-cost-show'); if(us)us.value=fmt(c); }
+  else { const us=document.getElementById('uni-cost-show'); if(us)us.value=''; }
+  document.querySelectorAll('.vehicle-entry').forEach(row=>{ const type=row.querySelector('.veh-type').value; const qty=parseInt(row.querySelector('.veh-qty').value)||0; const ct=row.querySelector('.veh-cost-type').value; if(!type||qty<10)return; const p10=ct==='new'?PRICES.vehicle_new[type]:PRICES.vehicle_monthly[type]; const c=p10*Math.floor(qty/10); const lv1=row.querySelector('.liv1').value.trim(); const lv2=row.querySelector('.liv2').value.trim(); let lab=`${type} ×${qty} (${ct==='new'?'new':'maint.'})`; if(lv1)lab+=` · L1:${lv1}`; if(lv2)lab+=` · L2:${lv2}`; lines.push({label:lab,amt:c}); total+=c; row.querySelector('.veh-livery-note').style.display=ct==='new'?'block':'none'; });
+  document.querySelectorAll('.weapon-entry').forEach(row=>{ const type=row.querySelector('.wpn-type').value; const qty=parseInt(row.querySelector('.wpn-qty').value)||0; if(!type||qty<=0)return; const tp=PRICES.weapon[type]; const price=tp[wtier]; if(!price){lines.push({label:`${type} ×${qty*100} (unavailable)`,amt:0});return;} const c=price*qty; lines.push({label:`${type}s ×${qty*100}`,amt:c}); total+=c; });
+  const hm=parseInt(document.getElementById('heli-mins')?.value)||0; if(hm>0){ const c=hm*PRICES.heli_per_min; lines.push({label:`Helicopter ×${hm} min`,amt:c}); total+=c; }
+  const sub=parseInt(document.getElementById('subdiv-qty')?.value)||0; if(sub>0){ const c=sub*PRICES.subdiv_monthly; lines.push({label:`Subdivisions ×${sub}`,amt:c}); total+=c; }
+  const cl=document.getElementById('cost-lines-el'); if(cl)cl.innerHTML=!lines.length?'<div style="color:var(--text-dim);font-family:\'IBM Plex Mono\',monospace;font-size:0.74rem;padding:8px 0;">No items selected.</div>':lines.map(l=>`<div class="cost-line"><span class="cll">${l.label}</span><span class="cla">${fmt(l.amt)}</span></div>`).join('');
+  const tc=document.getElementById('total-cost-el'); if(tc)tc.textContent=fmt(total);
+  const bb=document.getElementById('bal-before-el'); if(bb)bb.textContent=fmt(dept.budget);
+  const after=dept.budget-total;
+  const ae=document.getElementById('bal-after-el'); if(ae)ae.textContent=after<0?'-'+fmt(Math.abs(after)):fmt(after);
+  const ab=document.getElementById('bal-after-box'); if(ab)ab.className='bal-box '+(after>=0?'after-ok':'after-bad');
+  const im=document.getElementById('insuf-msg'); if(im)im.style.display=after<0?'block':'none';
+  const sb=document.getElementById('submit-order-btn'); if(sb)sb.disabled=after<0;
+}
+window.recalcAll = recalcAll;
+
+// ─── LOGOUT ────────────────────────────────────────────────
+window.logout = function(){
+  if(sotLoggedIn) audit('Secretary logged out','log-warn');
+  currentUser=null; sotLoggedIn=false; selectedDeptId=null;
+  document.getElementById('topbar-badge').style.display='none';
+  document.getElementById('topbar-logout').style.display='none';
+  document.getElementById('classif-badge').style.display='none';
+  document.getElementById('classif-label').style.display='none';
+  ['sot-user','sot-pass','entry-roblox','entry-discord'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
+  navigate('home');
+};
+
+// ─── EASTER EGGS ───────────────────────────────────────────
+document.addEventListener('keydown', e=>{
+  konamiSeq.push(e.keyCode); if(konamiSeq.length>10)konamiSeq.shift();
+  if(JSON.stringify(konamiSeq)===JSON.stringify(KONAMI)){ triggerKonami(); konamiSeq=[]; }
+  secretCode=(secretCode+e.key).slice(-6).toUpperCase();
+  if(secretCode==='POTATO'){ triggerPotato(); secretCode=''; }
+  _clearSeq=(_clearSeq+e.key).slice(-9).toUpperCase();
+  if(_clearSeq==='CLEARDATA'){ if(confirm('WIPE PORTAL STATE? Cannot be undone.')){ fbSet('portal/state',{TAXES:[],PRICES:PRICES,EMERGENCY_STATE:{alert:false,martial:false,budgetFreeze:false,lockdown:false},TICKER_MSG:'',DEPTS:JSON.parse(JSON.stringify(DEFAULT_DEPTS)),DEPT_STATUS:Object.fromEntries(DEFAULT_DEPTS.map(d=>[d.id,'active'])),DEPT_WATCHLIST:Object.fromEntries(DEFAULT_DEPTS.map(d=>[d.id,false]))}); _clearSeq=''; } }
+});
+
+function triggerKonami(){
+  const flash=document.getElementById('egg-flash'); flash.style.display='block'; flash.style.opacity='0.6';
+  setTimeout(()=>{ flash.style.opacity='0'; setTimeout(()=>flash.style.display='none',350); },300);
+  document.getElementById('classified-modal').classList.add('open');
+  if(sotLoggedIn) audit('Easter egg discovered: Konami Code','log-warn');
+}
+
+function triggerPotato(){
+  const seal=document.getElementById('seal-btn'); seal.textContent='🥔';
+  let deg=0; const spin=setInterval(()=>{ deg+=30; seal.style.transform=`rotate(${deg}deg)`; },50);
+  setTimeout(()=>{ clearInterval(spin); seal.textContent='⚖️'; seal.style.transform='';
+    const toast=document.createElement('div');
+    toast.style.cssText='position:fixed;bottom:30px;right:30px;z-index:9999;background:var(--navy-mid);border:1px solid var(--gold);padding:14px 20px;border-radius:3px;font-family:\'IBM Plex Mono\',monospace;font-size:0.75rem;color:var(--gold);letter-spacing:0.1em;box-shadow:0 10px 30px rgba(0,0,0,0.4);';
+    toast.textContent='🥔 Hello, Potato_2305.';
+    document.body.appendChild(toast);
+    setTimeout(()=>toast.remove(),4000);
+    if(sotLoggedIn) audit('Easter egg discovered: POTATO code','log-warn');
+  },2000);
+}
+
+document.getElementById('seal-btn').addEventListener('click',()=>{
+  sealClickCount++;
+  if(sealClickCount>=5){
+    sealClickCount=0;
+    const m=document.createElement('div');
+    m.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:9998;background:rgba(10,22,40,0.97);border:2px solid var(--gold-dim);padding:40px 50px;border-radius:4px;text-align:center;font-family:\'IBM Plex Mono\',monospace;max-width:480px;box-shadow:0 30px 80px rgba(0,0,0,0.7);';
+    m.innerHTML=`<div style="font-size:40px;margin-bottom:14px;">⚖️</div><div style="color:var(--gold);font-size:0.75rem;letter-spacing:0.2em;margin-bottom:12px;">SYSTEM MESSAGE</div><div style="color:#aabbcc;font-size:0.8rem;line-height:1.8;">"The strength of a nation's currency<br>reflects the strength of its resolve."<br><br><em style="color:var(--gold-dim);font-size:0.72rem;">— Secretary of the Treasury</em></div><div style="margin-top:18px;font-size:0.62rem;color:#556;">SCRP-TREASURY-INTERNAL-V7 · UPTIME: ${Math.floor(performance.now()/1000)}s</div><button onclick="this.parentNode.remove()" style="margin-top:18px;background:none;border:1px solid var(--gold-dim);color:var(--gold-dim);padding:7px 20px;border-radius:2px;font-family:\'IBM Plex Mono\',monospace;font-size:0.65rem;cursor:pointer;letter-spacing:0.15em;text-transform:uppercase;">Dismiss</button>`;
+    document.body.appendChild(m);
+    if(sotLoggedIn) audit('Easter egg discovered: Seal click sequence','log-warn');
+  }
+});
+
+// ─── INIT ──────────────────────────────────────────────────
+initListeners();
+renderPublicHome();
+renderFAQ();
+
+</script>
+</body>
+</html>
